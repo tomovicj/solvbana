@@ -16,5 +16,8 @@
   ],
   "scripts": {
     "build": "tsc --build"
+  },
+  "dependencies": {
+    "@solana/kit": "^7.1.0"
   }
 }

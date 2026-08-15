@@ -1,0 +1,88 @@
+{
+  "transaction": {
+    "signatures": [
+      "34PosJasPes8F3vYpnz7FZHDs9YP29MriTUFdC8q4eyJYgFH5aRxLv9CNP7WeqbyZPSgbB1vfcYD5R4H3FX4M96w"
+    ],
+    "message": {
+      "header": {
+        "numRequiredSignatures": 1,
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1
+      },
+      "accountKeys": [
+        "AAuztcXQ8BUnLLU9tPFpY5A6m6xdqi2RiVMM9iLpHtU8",
+        "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT",
+        "96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5",
+        "ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49",
+        "ADuUkR4vqLUMWXxW9gh6D6L8pMSawimctcNZ5pGwDcEt",
+        "Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY",
+        "DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh",
+        "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL",
+        "G6ZxcxWbSpEdDc8bAD3kTK9mW8bbTwkvDhya1kmrheVm",
+        "GSyXx6WRm2o6Qu4RWxTH17swLZKpTKQdQTS2uGcus1NF",
+        "HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe",
+        "HgzT81VF1xZ3FT9Eq1pHhea7Wcfq2bv4tWTP3VvJ8Y9D",
+        "T1pyyaTNZsKv2WcRAB8oVnk93mLJw2XzjtVYqCsaHqt"
+      ],
+      "recentBlockhash": "8htUcMpszvwZi9U6UV6BWx3nUisM9jGsbszLkkEwMB9T",
+      "instructions": [
+        {
+          "programIdIndex": 12,
+          "accounts": [11, 8, 9, 0, 2, 10, 5, 3, 6, 4, 7, 1, 0],
+          "data": "HaxoMzjt8k2TwhsCCNawQT",
+          "stackHeight": 1
+        }
+      ]
+    }
+  },
+  "meta": {
+    "err": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 2003
+        }
+      ]
+    },
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 2003
+          }
+        ]
+      }
+    },
+    "fee": 5000,
+    "preBalances": [
+      18398872161, 946560, 946560, 946560, 947561, 1047561, 946560, 948562, 210879037, 27835504793,
+      946560, 4612121, 1624568937
+    ],
+    "postBalances": [
+      18398867161, 946560, 946560, 946560, 947561, 1047561, 946560, 948562, 210879037, 27835504793,
+      946560, 4612121, 1624568937
+    ],
+    "innerInstructions": [],
+    "logMessages": [
+      "Program T1pyyaTNZsKv2WcRAB8oVnk93mLJw2XzjtVYqCsaHqt invoke [1]",
+      "Program log: Instruction: ChangeBlockBuilder",
+      "Program log: AnchorError caused by account: tip_receiver. Error Code: ConstraintRaw. Error Number: 2003. Error Message: A raw constraint was violated.",
+      "Program T1pyyaTNZsKv2WcRAB8oVnk93mLJw2XzjtVYqCsaHqt consumed 6919 of 200000 compute units",
+      "Program T1pyyaTNZsKv2WcRAB8oVnk93mLJw2XzjtVYqCsaHqt failed: custom program error: 0x7d3"
+    ],
+    "preTokenBalances": [],
+    "postTokenBalances": [],
+    "rewards": [],
+    "loadedAddresses": {
+      "writable": [],
+      "readonly": []
+    },
+    "computeUnitsConsumed": 6919,
+    "costUnits": 11435
+  },
+  "version": "legacy",
+  "slot": 439419536,
+  "transactionIndex": 90,
+  "blockTime": 1786791007
+}

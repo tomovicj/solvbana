@@ -1,0 +1,112 @@
+{
+  "transaction": {
+    "signatures": [
+      "25PWgVfPgPLLP9rtWwJiYqJfR1zvr3TVLKSaa2zHECVyGqrx85tbD7JNgJoqA7K4FELdNfbzLFuoYtrNczaHi8hp"
+    ],
+    "message": {
+      "header": {
+        "numRequiredSignatures": 1,
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 3
+      },
+      "accountKeys": [
+        "DvTDtviBxhWuL7UC356Ph3RYx4FLKkZNNBQHeHqqxR3N",
+        "uqCWgrxQPXNwLTpDVh2c7d3MQikKPDRRhZWdfnGe1nk",
+        "xtJ6kdUf6N9SqLztv3zdwgn4htaiiseiEJMseikotXF",
+        "3CkM38UaZW6nyTJku4ABE5jjS5AComQErrkd55LGTfxa",
+        "7irxv1nFj31uL1uoZjFLdkQjk9641wzB3vBuxYyjD7Uy",
+        "AXNeyaoGY4AVGXoT1Ag2PtA5NRoaqLU3vXMrinmYyPwS",
+        "CFmPgiN3mBcWtJyF8u4GDmfm5x7VZmzfY4ZSMxhQthmx",
+        "FM1vMCjYY2zRgqc7DMQFastpjQfaaJEDmoCEhYh8roZx",
+        "ComputeBudget111111111111111111111111111111",
+        "phDEVv4w6BcfkLrLNeXr8HhhgQxnxziVGXpGPcaadMf",
+        "8Q1zeC7qAPUhJ2ncHAW8N1TGcpMVDsSxdSBPLaE8G2ab"
+      ],
+      "recentBlockhash": "2MJgPu6hMtEFmQ89mVCsMMHP8zfq38ticTK77oy4rz7o",
+      "instructions": [
+        {
+          "programIdIndex": 8,
+          "accounts": [],
+          "data": "K1FDJ7",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 9,
+          "accounts": [9, 10, 3, 0, 1, 4, 7, 2, 5, 6],
+          "data": "8z22RsHryQg66kpiBBbvC4X79FJWzwTf9MC6GxnX4MtZGKUanczLLL3rFFywTNoA68StThPYaJNqykC7JYwc9Nf9q",
+          "stackHeight": 1
+        }
+      ]
+    }
+  },
+  "meta": {
+    "err": {
+      "InstructionError": [1, "InvalidInstructionData"]
+    },
+    "status": {
+      "Err": {
+        "InstructionError": [1, "InvalidInstructionData"]
+      }
+    },
+    "fee": 5000,
+    "preBalances": [
+      385221627, 38196480, 3214350720, 18708480, 11290456347, 8249994240, 10968960, 3339463680, 1,
+      1241441, 0
+    ],
+    "postBalances": [
+      385216627, 38196480, 3214350720, 18708480, 11290456347, 8249994240, 10968960, 3339463680, 1,
+      1241441, 0
+    ],
+    "innerInstructions": [
+      {
+        "index": 1,
+        "instructions": [
+          {
+            "programIdIndex": 9,
+            "accounts": [10],
+            "data": "2A3hRSpEbP8Y5H71tbsMANkZQ13uUKZ",
+            "stackHeight": 2
+          },
+          {
+            "programIdIndex": 9,
+            "accounts": [10],
+            "data": "cpsDnT2ExA2fGTjsbXcCQUW33orNr4BUdk3cYTsXbSkBVL7E1nEnHjqF2TAf31h5w81SVZNGpgFpH1iFUZAfwHz5sNfqBbWoFxttnxvhPDcKzTq3CA4U9Au9RcVSKWv8C7jSfSJQQFR7UffM9psguJh652pv9JKzpuaMtmF2XKZZUA1954tjKCcnygxKnctVTpNYNCvTRHA9T7n4Tit9ojgcAvduTZfe5Vb7Bm4A35ayXA6VPiRBGGtW6QVLKicjVZDbjxB5e4hfMHKi9vzw8LsU4JuXK2nJpPhg6B3AzMQwMKouKFadRYpaM7NJfZxqk4yUT",
+            "stackHeight": 2
+          }
+        ]
+      }
+    ],
+    "logMessages": [
+      "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "Program ComputeBudget111111111111111111111111111111 success",
+      "Program phDEVv4w6BcfkLrLNeXr8HhhgQxnxziVGXpGPcaadMf invoke [1]",
+      "Program log: Phoenix Eternal: Place Market Order",
+      "Program log: Attempting to add position to trader",
+      "Program log: uqCWgrxQPXNwLTpDVh2c7d3MQikKPDRRhZWdfnGe1nk",
+      "Program log: Successfully added position to selected trader",
+      "Program log: Failed to perform MatchingEngine::place_order",
+      "Program log: IOC order does not meet minimum requirements. Min base: 5556, Min quote: 1, Filled base: 0, Filled quote: 0",
+      "Program phDEVv4w6BcfkLrLNeXr8HhhgQxnxziVGXpGPcaadMf invoke [2]",
+      "Program phDEVv4w6BcfkLrLNeXr8HhhgQxnxziVGXpGPcaadMf consumed 603 of 1364303 compute units",
+      "Program phDEVv4w6BcfkLrLNeXr8HhhgQxnxziVGXpGPcaadMf success",
+      "Program phDEVv4w6BcfkLrLNeXr8HhhgQxnxziVGXpGPcaadMf invoke [2]",
+      "Program phDEVv4w6BcfkLrLNeXr8HhhgQxnxziVGXpGPcaadMf consumed 449 of 1362694 compute units",
+      "Program phDEVv4w6BcfkLrLNeXr8HhhgQxnxziVGXpGPcaadMf success",
+      "Program phDEVv4w6BcfkLrLNeXr8HhhgQxnxziVGXpGPcaadMf consumed 37941 of 1399850 compute units",
+      "Program phDEVv4w6BcfkLrLNeXr8HhhgQxnxziVGXpGPcaadMf failed: invalid instruction data"
+    ],
+    "preTokenBalances": [],
+    "postTokenBalances": [],
+    "rewards": [],
+    "loadedAddresses": {
+      "writable": [],
+      "readonly": []
+    },
+    "computeUnitsConsumed": 38091,
+    "costUnits": 42692
+  },
+  "version": "legacy",
+  "slot": 439419664,
+  "transactionIndex": 1270,
+  "blockTime": 1786791059
+}

@@ -1,4 +1,5 @@
 import type { Confidence } from './confidence.ts';
+import type { FailedTransaction } from './ingest/types.ts';
 
 /** A position in a program's source tree. */
 export interface SourceLocation {
@@ -43,6 +44,14 @@ export interface Diagnosis {
    * so a weak answer always explains itself instead of going quiet.
    */
   reasons: string[];
+  /**
+   * The normalized transaction, when one was retrieved.
+   *
+   * Absent only when the signature resolved to nothing at all — every other
+   * outcome, however degraded, still carries the failing instruction, the typed
+   * error, and whatever log stream survived.
+   */
+  transaction?: FailedTransaction;
 }
 
 /**

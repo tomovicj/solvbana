@@ -1,0 +1,79 @@
+{
+  "transaction": {
+    "signatures": [
+      "66XeGxDAvunh3XDLUMB1Y1QPguP7Jk4xVgdwhMdZ141SqWsWzywTnnLgU4erjHFWNC2uNEYw3QR4sya3Gn6muLom"
+    ],
+    "message": {
+      "header": {
+        "numRequiredSignatures": 1,
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2
+      },
+      "accountKeys": [
+        "313pffALkS2ZjGmKYgPYMHwktqbS5gsK7r5PekASMYwV",
+        "CseU24vsSgrrChAGrMDu9UKU8ebpc9k5CgJWoFRbrJ1b",
+        "ComputeBudget111111111111111111111111111111",
+        "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+      ],
+      "recentBlockhash": "99mZEgH9a1VfjYYqZrPxY8xsiQXXKDF6JAxuzxVTMnfV",
+      "instructions": [
+        {
+          "programIdIndex": 2,
+          "accounts": [],
+          "data": "JryY6K",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 2,
+          "accounts": [],
+          "data": "3x9tBxEM7XpK",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 3,
+          "accounts": [1, 0, 0],
+          "data": "A",
+          "stackHeight": 1
+        }
+      ],
+      "addressTableLookups": []
+    }
+  },
+  "meta": {
+    "err": {
+      "InstructionError": [2, "InvalidAccountData"]
+    },
+    "status": {
+      "Err": {
+        "InstructionError": [2, "InvalidAccountData"]
+      }
+    },
+    "fee": 7006,
+    "preBalances": [260304779, 0, 1, 192795783],
+    "postBalances": [260297773, 0, 1, 192795783],
+    "innerInstructions": [],
+    "logMessages": [
+      "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "Program ComputeBudget111111111111111111111111111111 success",
+      "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "Program ComputeBudget111111111111111111111111111111 success",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [1]",
+      "Program log: Error: InvalidAccountData",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 188 of 116622 compute units",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA failed: invalid account data for instruction"
+    ],
+    "preTokenBalances": [],
+    "postTokenBalances": [],
+    "rewards": [],
+    "loadedAddresses": {
+      "writable": [],
+      "readonly": []
+    },
+    "computeUnitsConsumed": 488,
+    "costUnits": 1843
+  },
+  "version": 0,
+  "slot": 439419623,
+  "transactionIndex": 995,
+  "blockTime": 1786791043
+}

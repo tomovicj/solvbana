@@ -2,7 +2,7 @@
 
 **Point it at a failed Solana transaction. It tells you which line of your program failed, and why.**
 
-> **Status: early development.** The architecture is settled; implementation is in progress. Phases 0–1 are the current focus. See [ROADMAP.md](./ROADMAP.md) for what exists and what doesn't.
+> **Status: early development.** The architecture is settled; implementation is in progress. Phase 0 (ingest & normalize) is done — a signature resolves to a typed structure naming the failing instruction, its error, the account list, the CPI tree, and the log stream. Every answer is still `unknown` confidence: naming error variants and locating source starts in Phase 1. See [ROADMAP.md](./ROADMAP.md) for what exists and what doesn't.
 
 ---
 

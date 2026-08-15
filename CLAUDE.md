@@ -4,13 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-The scaffold is in place; **no Solana logic exists yet**. Phase 0 (ingest & normalize) is the next thing to build. `POST /diagnose` currently returns a real `unknown` diagnosis rather than a stub error, which is the contract every later tier has to keep.
+**Phase 0 (ingest & normalize) is done.** `POST /diagnose` fetches a real transaction and returns a typed `FailedTransaction`: the failing instruction, the parsed `meta.err`, the flattened account keys, the CPI-nested instruction tree, and the tokenized log stream. Confidence is still `unknown` for every answer — decoding `Custom(6001)` as a number is short of `variant-only`, which needs the IDL's variant name and `#[msg]` text from Phase 2. Phase 1 (exact answers without source) is next, and the Anchor and panic lines it needs are already sitting in `logs.lines[].raw`.
+
+The contract every later tier has to keep: always answer, never throw for an undiagnosable input, and always say what the answer is worth and why.
 
 Node/TypeScript pnpm workspace, ESM throughout:
 
 | Package | What it is |
 | --- | --- |
-| `packages/core` (`@solvbana/core`) | The diagnosis engine. Zero runtime dependencies, and **no HTTP or framework imports** — enforced by an ESLint `no-restricted-imports` rule scoped to the package, so the boundary fails lint rather than review. This is what keeps the planned CLI and Phase 6 CI-integration API cheap to add. |
+| `packages/core` (`@solvbana/core`) | The diagnosis engine. Depends on `@solana/kit` for RPC, and **nothing else** — in particular **no HTTP server or framework imports**, enforced by an ESLint `no-restricted-imports` rule scoped to the package, so the boundary fails lint rather than review. This is what keeps the planned CLI and Phase 6 CI-integration API cheap to add. |
 | `packages/server` (`@solvbana/server`) | Fastify transport over `core`. Route schemas are TypeBox, so ajv validation and `fast-json-stringify` serialization both work off the same declarations. |
 
 ### Commands
@@ -19,9 +21,11 @@ Node/TypeScript pnpm workspace, ESM throughout:
 | --- | --- |
 | `pnpm dev` | Watch-mode server from TypeScript source |
 | `pnpm build` | `tsc --build` across the workspace |
-| `pnpm typecheck` | Builds, then typechecks both `test/` projects |
+| `pnpm typecheck` | Builds, then typechecks both `test/` projects and `scripts/` |
 | `pnpm lint` / `pnpm format` | ESLint (type-checked) / Prettier |
 | `pnpm test` / `pnpm test:watch` | Vitest |
+| `pnpm harvest` | Add mainnet failures to the fixture corpus. Manual only, never CI |
+| `pnpm record <sig>` | Add one named signature to the corpus |
 
 Single test file: `pnpm vitest run packages/server/test/health.test.ts`. Single test by name: add `-t "returns ok"`.
 
@@ -66,9 +70,18 @@ These are the load-bearing correctness rules from `ROADMAP.md`'s cross-cutting s
 
 ## The fixture corpus is the spec
 
-Phase 0 calls for 30–50 real failing mainnet signatures spanning Anchor constraints, custom errors, panics, compute exhaustion, and native program errors. Every phase is measured against this corpus, and regressions in it block shipping. Practical implications:
+45 real failing mainnet signatures live in `fixtures/`, spanning Anchor constraints, Anchor account errors, custom errors, panics, compute exhaustion, native-program errors, and named runtime errors from non-native programs. Every phase is measured against this corpus, and regressions in it block shipping.
+
+Layout:
+
+- `fixtures/transactions/<signature>.json` — the raw `getTransaction` response, stored as wire JSON so it stays readable and diffable.
+- `fixtures/manifest.json` — hand-checked expectations per signature, plus a `distinctnessKey` the harvester uses to cap repeats. Without that cap a harvest fills with whichever error the busiest program is currently throwing, testing one code path many times over.
+- `fixtures/synthetic/` — hand-written edge cases a block scan will not produce: truncated logs, absent logs, missing `loadedAddresses`, null `stackHeight`, an unknown `meta.err` variant, and a transaction-level failure. Kept separate so re-running the harvester cannot clobber them.
+
+Practical implications:
 
 - Cache RPC responses for fixtures so the suite runs offline and deterministically; live RPC in tests makes the corpus unreliable and expensive.
+- `reviveRawTransaction` must reproduce exactly what `@solana/kit` produces, bigints included. A fixture revived into a shape production never sees is a green test over a broken parser — which is precisely how the `meta.err` bigint bug survived the first suite and only surfaced against a live endpoint.
 - Phase 3 has explicit metrics to maintain: how often the correct throw site is uniquely identified, and how often it lands in the top 3.
 - Phase 5 must cross-check replay results against Phase 3 inference on the corpus — disagreement means one of them is broken.
 
@@ -77,6 +90,9 @@ Phase 0 calls for 30–50 real failing mainnet signatures spanning Anchor constr
 These are constraints of the Solana platform, not implementation choices, and each one has bitten the design already:
 
 - `getTransaction` **must** be called with `maxSupportedTransactionVersion: 0`; omitting it errors on every v0 transaction.
+- **`@solana/kit` upcasts the integers inside `meta.err` to `bigint`** while leaving structural indices (`programIdIndex`, instruction `accounts`, `innerInstructions[].index`, `stackHeight`, message header counts) as `number`. A `typeof x === 'number'` check on the error index or a `Custom` code silently reports every real failure as unrecognized. `slot`, `blockTime`, `fee`, and `computeUnitsConsumed` are bigints too, and JSON has no bigint — they cross the wire as strings.
+- **Truncated logs are detected by the literal `Log truncated` line** the runtime appends, not by measuring 10KB. The cap applies to what the runtime counted, not to what survived into the response.
+- **`meta.loadedAddresses` usually makes address-lookup-table resolution free** — the RPC returns the resolved writable and readonly addresses, so no separate table fetch is needed. When it is absent, do not fetch the table: its contents may have changed since the failing slot. Degrade and say so.
 - A `null` response is ambiguous — "never landed" and "outside the retention window" are different outcomes and must be distinguished, not merged.
 - Only landed transactions are retrievable. Preflight rejections, dropped transactions, and expired blockhashes were never recorded.
 - Solana caps transaction logs at 10KB. The tail is lost, which is exactly where a panic message usually is. Truncation must be detected and reported as reduced confidence.

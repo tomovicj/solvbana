@@ -10,15 +10,15 @@
 
 Foundation. No diagnosis yet, just a clean internal representation of a failed transaction.
 
-- [ ] RPC client wrapper around `getTransaction` with `maxSupportedTransactionVersion: 0` set (omitting it errors on all v0 transactions)
-- [ ] Handle `null` responses — distinguish "never landed" from "outside RPC retention window"
-- [ ] Archive RPC fallback for transactions older than public node retention (~2 days)
-- [ ] Normalize legacy vs v0 messages; resolve `addressTableLookups` into a flat `accountKeys` list
-- [ ] Parse `meta.err` into a typed enum: `InstructionError(index, kind)`, top-level variants (`InsufficientFundsForRent`, `AlreadyProcessed`, …)
-- [ ] Build the instruction tree from `meta.innerInstructions` — outer instructions with CPI children, preserving stack depth
-- [ ] Log parser: tokenize `invoke [depth]` / `success` / `failed` / `Program log:` / `consumed N of M compute units` into a structured event stream keyed to the instruction tree
-- [ ] Detect log truncation (10KB cap) and flag it on the parsed result
-- [ ] Fixture corpus: 30–50 real failing signatures spanning Anchor constraints, custom errors, panics, compute exhaustion, native program errors. This is the regression suite for everything below.
+- [x] RPC client wrapper around `getTransaction` with `maxSupportedTransactionVersion: 0` set (omitting it errors on all v0 transactions)
+- [x] Handle `null` responses — distinguish "never landed" from "outside RPC retention window"
+- [x] Archive RPC fallback for transactions older than public node retention (~2 days)
+- [x] Normalize legacy vs v0 messages; resolve `addressTableLookups` into a flat `accountKeys` list
+- [x] Parse `meta.err` into a typed enum: `InstructionError(index, kind)`, top-level variants (`InsufficientFundsForRent`, `AlreadyProcessed`, …)
+- [x] Build the instruction tree from `meta.innerInstructions` — outer instructions with CPI children, preserving stack depth
+- [x] Log parser: tokenize `invoke [depth]` / `success` / `failed` / `Program log:` / `consumed N of M compute units` into a structured event stream keyed to the instruction tree
+- [x] Detect log truncation (10KB cap) and flag it on the parsed result
+- [x] Fixture corpus: 30–50 real failing signatures spanning Anchor constraints, custom errors, panics, compute exhaustion, native program errors. This is the regression suite for everything below.
 
 **Done when:** any failed signature yields a typed structure identifying which instruction failed, with what error, and what the log stream around it was.
 

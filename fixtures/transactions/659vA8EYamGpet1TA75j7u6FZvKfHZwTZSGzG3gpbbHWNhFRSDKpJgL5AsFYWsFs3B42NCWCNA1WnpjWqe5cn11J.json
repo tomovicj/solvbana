@@ -1,0 +1,91 @@
+{
+  "transaction": {
+    "signatures": [
+      "659vA8EYamGpet1TA75j7u6FZvKfHZwTZSGzG3gpbbHWNhFRSDKpJgL5AsFYWsFs3B42NCWCNA1WnpjWqe5cn11J"
+    ],
+    "message": {
+      "header": {
+        "numRequiredSignatures": 1,
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2
+      },
+      "accountKeys": [
+        "ordnd8TZFYW4k4MeLrR3qSwXMxezL6W3WryUPYTzLQM",
+        "7tuxkiCx6iS6QAtymhaptbug9GX8g9fy27huZjUCtmji",
+        "AFGtxJeM29ENkQXPGgagHpBAxh5v1BWnrqihnEFcaxsM",
+        "F12pV4hrZZoTtY8eCJC1uDiYh6z7tc4PQcS9nUfuHAR7",
+        "ComputeBudget111111111111111111111111111111",
+        "ord1qJZ3DB52s9NoG8nuoacW85aCyNvECa5kAqcBVBu"
+      ],
+      "recentBlockhash": "HLHXPMMts5DwfFiTQUh4SV6t1u4DyUiYLTKkSaKifWaF",
+      "instructions": [
+        {
+          "programIdIndex": 4,
+          "accounts": [],
+          "data": "HykG3y",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 4,
+          "accounts": [],
+          "data": "3GAG5eogvTjV",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 5,
+          "accounts": [3, 2, 1, 0],
+          "data": "8Ubffx3Akrm",
+          "stackHeight": 1
+        }
+      ]
+    }
+  },
+  "meta": {
+    "err": {
+      "InstructionError": [
+        2,
+        {
+          "Custom": 3012
+        }
+      ]
+    },
+    "status": {
+      "Err": {
+        "InstructionError": [
+          2,
+          {
+            "Custom": 3012
+          }
+        ]
+      }
+    },
+    "fee": 5150,
+    "preBalances": [3092866219, 15228480, 2213280, 0, 1, 1141440],
+    "postBalances": [3092861069, 15228480, 2213280, 0, 1, 1141440],
+    "innerInstructions": [],
+    "logMessages": [
+      "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "Program ComputeBudget111111111111111111111111111111 success",
+      "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "Program ComputeBudget111111111111111111111111111111 success",
+      "Program ord1qJZ3DB52s9NoG8nuoacW85aCyNvECa5kAqcBVBu invoke [1]",
+      "Program log: Instruction: Reclaim",
+      "Program log: AnchorError caused by account: pod_meta. Error Code: AccountNotInitialized. Error Number: 3012. Error Message: The program expected this account to be already initialized.",
+      "Program ord1qJZ3DB52s9NoG8nuoacW85aCyNvECa5kAqcBVBu consumed 3189 of 14700 compute units",
+      "Program ord1qJZ3DB52s9NoG8nuoacW85aCyNvECa5kAqcBVBu failed: custom program error: 0xbc4"
+    ],
+    "preTokenBalances": [],
+    "postTokenBalances": [],
+    "rewards": [],
+    "loadedAddresses": {
+      "writable": [],
+      "readonly": []
+    },
+    "computeUnitsConsumed": 3489,
+    "costUnits": 5574
+  },
+  "version": "legacy",
+  "slot": 439419663,
+  "transactionIndex": 1093,
+  "blockTime": 1786791059
+}

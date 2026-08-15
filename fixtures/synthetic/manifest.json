@@ -1,0 +1,77 @@
+{
+  "_comment": "Hand-written edge cases that a block scan will not reliably produce. Kept apart from fixtures/manifest.json so re-running scripts/harvest.ts can never clobber them.",
+  "entries": [
+    {
+      "file": "truncated-logs.json",
+      "case": "logs hit the 10KB cap",
+      "failingInstructionIndex": 0,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": true,
+      "expectAbsentLogs": false,
+      "expectUnresolvedLookups": false,
+      "expectCpiDepthUnavailable": false,
+      "note": "The runtime's `Log truncated` marker is present, so the panic message that would have followed is gone. Truncation must be reported, and lines after the marker must not be attributed to an instruction."
+    },
+    {
+      "file": "unresolved-lookups.json",
+      "case": "v0 lookups with no meta.loadedAddresses",
+      "failingInstructionIndex": 0,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "expectAbsentLogs": false,
+      "expectUnresolvedLookups": true,
+      "expectCpiDepthUnavailable": false,
+      "note": "Addresses loaded from a lookup table are missing from the response. Ingest reports the gap instead of reading the table's current contents, which may have been extended since this slot."
+    },
+    {
+      "file": "null-stack-height.json",
+      "case": "inner instructions with no stackHeight",
+      "failingInstructionIndex": 0,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "expectAbsentLogs": false,
+      "expectUnresolvedLookups": false,
+      "expectCpiDepthUnavailable": true,
+      "note": "CPI depth was never recorded for this transaction, so the two inner instructions are listed flat under instruction 0 and the node is flagged. Phase 3's CPI-progress bounding must not treat the fallback as real depth."
+    },
+    {
+      "file": "unrecognized-error.json",
+      "case": "unknown meta.err variant",
+      "failingInstructionIndex": null,
+      "errorKind": "unrecognized",
+      "instructionErrorKind": null,
+      "expectTruncatedLogs": false,
+      "expectAbsentLogs": false,
+      "expectUnresolvedLookups": false,
+      "expectCpiDepthUnavailable": false,
+      "note": "A variant no parser version has seen. It reaches the output with its raw value retained rather than throwing, because new runtime variants ship independently of this code."
+    },
+    {
+      "file": "no-logs.json",
+      "case": "log recording disabled",
+      "failingInstructionIndex": 0,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "expectAbsentLogs": true,
+      "expectUnresolvedLookups": false,
+      "expectCpiDepthUnavailable": false,
+      "note": "The leanest tier that must still answer: error kind and failing instruction index, with the absence of logs stated rather than glossed over."
+    },
+    {
+      "file": "transaction-level-error.json",
+      "case": "failure owned by no single instruction",
+      "failingInstructionIndex": null,
+      "errorKind": "insufficient-funds-for-rent",
+      "instructionErrorKind": null,
+      "expectTruncatedLogs": false,
+      "expectAbsentLogs": false,
+      "expectUnresolvedLookups": false,
+      "expectCpiDepthUnavailable": false,
+      "note": "A transaction-level error. The summary must not name a failing instruction, because none is responsible."
+    }
+  ]
+}

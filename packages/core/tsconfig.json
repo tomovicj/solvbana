@@ -3,7 +3,9 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "types": []
+    /* The RPC transport needs `fetch` and `AbortSignal`; @types/node supplies both.
+       Core still owns no HTTP server code — the eslint boundary enforces that. */
+    "types": ["node"]
   },
   "include": ["src/**/*.ts"]
 }

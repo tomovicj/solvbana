@@ -1,0 +1,46 @@
+{
+  "_comment": "Hand-written. A transaction-level failure that no single instruction is responsible for, so `failingInstructionIndex` is null and the summary must not name one.",
+  "slot": 300000006,
+  "blockTime": 1730000006,
+  "version": 0,
+  "transaction": {
+    "signatures": [
+      "5Tg3nRxWZLMhBqFTNvBLQ9WtJXhWXNTKqPZvGkYXsjKq3ZKcNgWFqDrNwLZFwEyBRPJZQsMhBqtVYBLp2vXHTnTt"
+    ],
+    "message": {
+      "accountKeys": [
+        "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+        "GDDMwNyyx8uB6zrqwBFHjLLG3TBYk2F8Az4yrQC5RzMp",
+        "11111111111111111111111111111111"
+      ],
+      "header": {
+        "numRequiredSignatures": 1,
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1
+      },
+      "recentBlockhash": "EkSnNWid2cvwEVnVx9aBqawnmiCNiDgp3gUdkDPTKN1N",
+      "instructions": [
+        {
+          "programIdIndex": 2,
+          "accounts": [0, 1],
+          "data": "3Bxs4h24hBtQy9rw",
+          "stackHeight": null
+        }
+      ],
+      "addressTableLookups": []
+    }
+  },
+  "meta": {
+    "err": { "InsufficientFundsForRent": { "account_index": 1 } },
+    "fee": 5000,
+    "preBalances": [1000000000, 0, 1],
+    "postBalances": [999995000, 0, 1],
+    "innerInstructions": [],
+    "logMessages": [],
+    "preTokenBalances": [],
+    "postTokenBalances": [],
+    "rewards": null,
+    "computeUnitsConsumed": 150,
+    "status": { "Err": { "InsufficientFundsForRent": { "account_index": 1 } } }
+  }
+}
