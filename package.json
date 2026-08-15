@@ -1,0 +1,33 @@
+{
+  "name": "solvbana",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Point it at a failed Solana transaction. It tells you which line of your program failed, and why.",
+  "type": "module",
+  "packageManager": "pnpm@10.13.1",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "node --watch --conditions=development --env-file-if-exists=.env packages/server/src/index.ts",
+    "start": "node packages/server/dist/index.js",
+    "build": "tsc --build",
+    "clean": "tsc --build --clean",
+    "typecheck": "tsc --build && tsc -p packages/core/test && tsc -p packages/server/test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "@types/node": "^24.9.1",
+    "eslint": "^9.39.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.0",
+    "vitest": "^3.2.4"
+  }
+}

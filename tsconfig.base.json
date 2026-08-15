@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+
+    /* Resolve @solvbana/* to TypeScript source in dev and test; production builds
+       drop this condition and resolve to each package's dist output instead. */
+    "customConditions": ["development"],
+
+    /* Imports are written with explicit .ts extensions so Node can run the source
+       directly via type stripping; tsc rewrites them to .js on emit. */
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    /* Keeps every file runnable by Node's native type stripping: no enums,
+       no namespaces, no parameter properties. */
+    "erasableSyntaxOnly": true,
+
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}

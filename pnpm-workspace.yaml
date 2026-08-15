@@ -1,0 +1,7 @@
+packages:
+  - 'packages/*'
+
+# esbuild ships a prebuilt binary and needs its install script to link it;
+# without this, vitest cannot start.
+onlyBuiltDependencies:
+  - esbuild

@@ -1,0 +1,20 @@
+{
+  "name": "@solvbana/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Transaction diagnosis engine. Knows nothing about HTTP.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --build"
+  }
+}
