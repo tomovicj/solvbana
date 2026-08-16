@@ -1,3 +1,4 @@
+import type { Finding } from './analyze/types.ts';
 import type { Confidence } from './confidence.ts';
 import type { FailedTransaction } from './ingest/types.ts';
 
@@ -52,6 +53,15 @@ export interface Diagnosis {
    * error, and whatever log stream survived.
    */
   transaction?: FailedTransaction;
+  /**
+   * What reading the logs established, as structured data rather than prose.
+   *
+   * Absent when there was no transaction to read. It is deliberately not folded
+   * into `summary`: Phase 4 renders source excerpts and recomputes PDAs from
+   * these fields, and a renderer forced to re-parse its own summary string would
+   * be a parser for a format nobody specified.
+   */
+  finding?: Finding;
 }
 
 /**

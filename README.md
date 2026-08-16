@@ -2,7 +2,7 @@
 
 **Point it at a failed Solana transaction. It tells you which line of your program failed, and why.**
 
-> **Status: early development.** The architecture is settled; implementation is in progress. Phase 0 (ingest & normalize) is done — a signature resolves to a typed structure naming the failing instruction, its error, the account list, the CPI tree, and the log stream. Every answer is still `unknown` confidence: naming error variants and locating source starts in Phase 1. See [ROADMAP.md](./ROADMAP.md) for what exists and what doesn't.
+> **Status: early development.** The architecture is settled; implementation is in progress. Phases 0 and 1 are done: a signature resolves to a typed structure naming the failing instruction, and its logs are read for everything they disclose on their own — panic locations, Anchor throw sites, error names and messages, handler names, and compute figures. Against the 45-signature test corpus that currently lands 7 `exact`, 30 `variant-only`, and 8 `unknown`. The `unknown` ones are bare error codes from programs that published no name; those need Phase 2's IDL resolution. See [ROADMAP.md](./ROADMAP.md) for what exists and what doesn't.
 
 ---
 
@@ -57,8 +57,8 @@ Four independent signals, applied in order of cost:
 
 | Tier | Signal | Cost | Gives you |
 |---|---|---|---|
-| 1 | Log parsing | Free | Anchor constraint errors already name the account; panics already carry `file:line:col` |
-| 2 | IDL + discriminator | One RPC call | Error variant name and `#[msg]` text; which handler ran |
+| 1 | Log parsing | Free | Anchor constraint errors already name the account, the variant, and the `#[msg]` text; panics already carry `file:line:col`; Anchor programs already log which handler ran |
+| 2 | IDL + discriminator | One RPC call | Error variant name and `#[msg]` text, and which handler ran, for programs that log neither |
 | 3 | Static analysis | Source fetch | Every throw site indexed, filtered by reachability from the failing handler, bounded by observed CPIs and `msg!` breadcrumbs |
 | 4 | Replay | Archive state + rbpf | Exact program counter, DWARF-symbolized, with an intra-program call stack |
 
@@ -68,18 +68,20 @@ Most real failures resolve at tier 1 or 2. Tier 4 exists for the ones that don't
 
 Every result carries an explicit confidence level:
 
-- **`exact`** — the location is read directly from a panic message or an Anchor account attribution. Not inferred.
+- **`exact`** — the location is read, not inferred: a panic message or an Anchor `thrown in <file>:<line>` that the program printed about itself. `exact` always comes with at least one location; it never means "we're sure but can't say where".
 - **`narrowed`** — inference reduced the candidates to a specific set. All surviving candidates are shown, ranked. Never just the top one.
-- **`variant-only`** — the error is decoded but the source isn't available or isn't verified. You get the name and message, no line.
+- **`variant-only`** — the error is identified but not located. This covers more than it sounds like: an Anchor error attributed to a specific account, with its name, its `#[msg]` text, and the two operands that failed the comparison, is `variant-only` — because none of that is a line number.
 - **`unknown`** — logs were truncated, state is unavailable, or the failure is opaque. Says so plainly.
 
 A debugger that is confidently wrong once is a debugger you stop trusting. The tool would rather return three candidates than one guess.
+
+It also declines guesses that would be easy to make. Anchor reserves error codes 2000–2999 for constraints, so a bare `Custom(2012)` looks a lot like `ConstraintAddress` — but that range is one framework's convention, and any program may return any code for any reason. Unless the program published the name itself, the tool reports the number and says why it will not name it.
 
 ## Correctness guarantees
 
 **Slot-accurate binaries.** Programs get upgraded. `Solvbana` resolves the binary that was live at the failing slot by walking `Upgrade` instructions on the ProgramData account and bisecting by slot. It never falls back to the current deployment silently — if the historical binary can't be resolved, confidence drops and the report says why.
 
-**Verified source only.** Source mapping requires a verified build. The on-chain binary is hashed and checked against the registry entry before any line number is produced. Unverified programs get error names and messages, never line numbers.
+**Verified source only.** Source *mapping* requires a verified build. The on-chain binary is hashed and checked against the registry entry before any line number is derived from it. Unverified programs get error names and messages, never mapped line numbers. A location the program printed about itself — a panic message, an Anchor throw site — is exempt, because nothing was mapped: the running program said where it was.
 
 **Replay is checked against the ledger.** A replayed transaction must reproduce the same `meta.err` and compute consumption as the recorded one. Divergence means the reconstructed state is wrong, and the tool fails loudly rather than reporting a plausible answer.
 

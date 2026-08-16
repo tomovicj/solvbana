@@ -20,20 +20,47 @@ describe('diagnose', () => {
       source: fixtureSource('synthetic', 'unresolved-lookups.json'),
     });
 
-    // Phase 0 decodes the code but cannot name the variant, so it stays a number.
+    // The program published no name for 6001, so it stays a number.
     expect(result.summary).toMatch(/Instruction 1 of 1 failed/);
     expect(result.summary).toMatch(/Custom\(6001\)/);
     expect(result.transaction?.error).toMatchObject({ kind: 'instruction-error', index: 0 });
   });
 
-  it('stays at unknown confidence and says why', async () => {
+  it('refuses to name a code the program never published, and says so', async () => {
     const result = await diagnose(SIGNATURE, {
       source: fixtureSource('synthetic', 'unresolved-lookups.json'),
     });
 
     expect(result.confidence).toBe('unknown');
     expect(result.candidates).toEqual([]);
-    expect(result.reasons[0]).toMatch(/no source has been resolved/);
+    expect(result.finding?.error).toMatchObject({ code: 6001, name: null, naming: 'none' });
+    expect(result.reasons[0]).toMatch(/reserved ranges/);
+  });
+
+  it('reports a throw site the program printed about itself', async () => {
+    const result = await diagnose(SIGNATURE, {
+      source: fixtureSource('synthetic', 'null-stack-height.json'),
+    });
+
+    // Anchor named the error and blamed an account but printed no line, so the
+    // answer is identified without being located.
+    expect(result.confidence).toBe('variant-only');
+    expect(result.candidates).toEqual([]);
+    expect(result.finding).toMatchObject({
+      handler: null,
+      error: { code: 2006, name: 'ConstraintSeeds', naming: 'logged' },
+      failure: { kind: 'anchor', account: 'vault' },
+    });
+    expect(result.summary).toMatch(/ConstraintSeeds \(2006\)/);
+  });
+
+  it('names the program that originated a failure, not the one that propagated it', async () => {
+    const result = await diagnose(SIGNATURE, {
+      source: fixtureSource('synthetic', 'native-custom-error.json'),
+    });
+
+    expect(result.finding?.program).toBe('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+    expect(result.finding?.handler).toBe('Transfer');
   });
 
   it('carries every ingest degradation into the reasons', async () => {

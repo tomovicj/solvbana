@@ -4,6 +4,7 @@ import {
   walkInstructions,
   type Diagnosis,
   type FailedTransaction,
+  type Finding,
 } from '@solvbana/core';
 
 const ConfidenceSchema = Type.Union(CONFIDENCE_LEVELS.map((level) => Type.Literal(level)));
@@ -135,6 +136,77 @@ const FailedTransactionSchema = Type.Object({
   degradations: Type.Array(Type.String()),
 });
 
+const NullableString = Type.Union([Type.String(), Type.Null()]);
+const NullableInteger = Type.Union([Type.Integer(), Type.Null()]);
+
+/**
+ * `naming` is the provenance of `name` and `message`, and it ships on the wire
+ * for the same reason it exists in core: a consumer has to be able to tell an
+ * error the program published from one looked up in a built-in table.
+ */
+const DecodedErrorSchema = Type.Object({
+  code: NullableInteger,
+  name: NullableString,
+  message: NullableString,
+  naming: Type.Union([
+    Type.Literal('logged'),
+    Type.Literal('native-table'),
+    Type.Literal('runtime-variant'),
+    Type.Literal('none'),
+  ]),
+});
+
+const ComparisonSchema = Type.Object({ left: Type.String(), right: Type.String() });
+
+const FailureKindSchema = Type.Union([
+  Type.Object({
+    kind: Type.Literal('anchor'),
+    account: NullableString,
+    site: Type.Union([SourceLocationSchema, Type.Null()]),
+    comparison: Type.Union([ComparisonSchema, Type.Null()]),
+  }),
+  Type.Object({
+    kind: Type.Literal('panic'),
+    site: SourceLocationSchema,
+    message: Type.String(),
+    classification: Type.Union(
+      [
+        'arithmetic-overflow',
+        'divide-by-zero',
+        'index-out-of-bounds',
+        'slice-out-of-range',
+        'unwrap-none',
+        'unwrap-err',
+        'explicit-panic',
+        'unclassified',
+      ].map((value) => Type.Literal(value)),
+    ),
+  }),
+  Type.Object({
+    kind: Type.Literal('compute'),
+    scope: Type.Union([
+      Type.Literal('frame'),
+      Type.Literal('transaction'),
+      Type.Literal('stack-frame'),
+    ]),
+    consumed: NullableInteger,
+    budget: NullableInteger,
+    requestedLimit: NullableInteger,
+    stackFrame: NullableInteger,
+  }),
+  Type.Object({ kind: Type.Literal('native'), programId: Type.String() }),
+  Type.Object({ kind: Type.Literal('runtime'), variant: Type.String() }),
+  Type.Object({ kind: Type.Literal('undecoded') }),
+]);
+
+const FindingSchema = Type.Object({
+  program: NullableString,
+  handler: NullableString,
+  error: DecodedErrorSchema,
+  failure: FailureKindSchema,
+  explanation: Type.String(),
+});
+
 export const DiagnosisSchema = Type.Object({
   signature: Type.String(),
   confidence: ConfidenceSchema,
@@ -142,6 +214,7 @@ export const DiagnosisSchema = Type.Object({
   candidates: Type.Array(CandidateSiteSchema),
   reasons: Type.Array(Type.String()),
   transaction: Type.Optional(FailedTransactionSchema),
+  finding: Type.Optional(FindingSchema),
 });
 
 export const DiagnoseBody = Type.Object(
@@ -155,6 +228,7 @@ export type DiagnoseBody = Static<typeof DiagnoseBody>;
 
 export type DiagnosisWire = Static<typeof DiagnosisSchema>;
 export type FailedTransactionWire = Static<typeof FailedTransactionSchema>;
+export type FindingWire = Static<typeof FindingSchema>;
 
 /**
  * Compile-time guard: the wire schema drives response serialization, so if core
@@ -170,6 +244,20 @@ export const DIAGNOSIS_SCHEMA_COVERS_CORE: keyof Diagnosis extends keyof Diagnos
   : never = true;
 
 export const TRANSACTION_SCHEMA_COVERS_CORE: keyof FailedTransaction extends keyof FailedTransactionWire
+  ? true
+  : never = true;
+
+/**
+ * The finding is the part Phase 4 renders from, so a field lost to schema drift
+ * would silently remove an explanation rather than break anything visible here.
+ * Unlike the two above, this checks the union members too: `FailureKind` gains a
+ * member per failure category, and a category missing from the schema would be
+ * stripped down to whatever keys the other members happen to share.
+ */
+export const FINDING_SCHEMA_COVERS_CORE: keyof Finding extends keyof FindingWire ? true : never =
+  true;
+
+export const FAILURE_KIND_SCHEMA_COVERS_CORE: Finding['failure']['kind'] extends FindingWire['failure']['kind']
   ? true
   : never = true;
 
@@ -209,5 +297,6 @@ export function toDiagnosisWire(diagnosis: Diagnosis): DiagnosisWire {
     ...(diagnosis.transaction === undefined
       ? {}
       : { transaction: toTransactionWire(diagnosis.transaction) }),
+    ...(diagnosis.finding === undefined ? {} : { finding: diagnosis.finding }),
   };
 }

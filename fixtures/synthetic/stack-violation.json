@@ -1,0 +1,47 @@
+{
+  "_comment": "Hand-written. A 4KB stack frame overrun. The runtime logs the access violation as program output and then fails the frame with a generic `Program failed to complete`, so the specific cause is only visible inside the frame's own lines. A block scan will not reliably produce one of these.",
+  "slot": 300000007,
+  "blockTime": 1730000007,
+  "version": 0,
+  "transaction": {
+    "signatures": [
+      "3QpB2vHnKcvT6xVdWzGqk1LrSjMdPfXwYb8ScHqRnAeUvKmTdLpZ9fWqNbGxYcJhRt4aVsKeMnPqLxDbTgWvHsRa"
+    ],
+    "message": {
+      "accountKeys": [
+        "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+        "So11111111111111111111111111111111111111112",
+        "MyProg1111111111111111111111111111111111111"
+      ],
+      "header": {
+        "numRequiredSignatures": 1,
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1
+      },
+      "recentBlockhash": "EkSnNWid2cvwEVnVx9aBqawnmiCNiDgp3gUdkDPTKN1N",
+      "instructions": [
+        { "programIdIndex": 2, "accounts": [0, 1], "data": "3Bxs4h24hBtQy9rw", "stackHeight": null }
+      ],
+      "addressTableLookups": []
+    }
+  },
+  "meta": {
+    "err": { "InstructionError": [0, "ProgramFailedToComplete"] },
+    "fee": 5000,
+    "preBalances": [1000000000, 2039280, 1],
+    "postBalances": [999995000, 2039280, 1],
+    "innerInstructions": [],
+    "logMessages": [
+      "Program MyProg1111111111111111111111111111111111111 invoke [1]",
+      "Program log: Instruction: Settle",
+      "Program MyProg1111111111111111111111111111111111111 consumed 4218 of 200000 compute units",
+      "Program failed to complete: Access violation in stack frame 3 at address 0x200003ff8 of size 8 by instruction #1263",
+      "Program MyProg1111111111111111111111111111111111111 failed: Program failed to complete"
+    ],
+    "preTokenBalances": [],
+    "postTokenBalances": [],
+    "rewards": null,
+    "computeUnitsConsumed": 4218,
+    "status": { "Err": { "InstructionError": [0, "ProgramFailedToComplete"] } }
+  }
+}

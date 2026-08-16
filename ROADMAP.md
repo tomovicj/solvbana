@@ -28,17 +28,25 @@ Foundation. No diagnosis yet, just a clean internal representation of a failed t
 
 The cases where the location falls out of the logs directly. Highest value per unit of effort — build this before anything clever.
 
-- [ ] **Anchor constraint errors (2000–2999):** parse `AnchorError caused by account: <name>` → account struct field name + which `#[account(...)]` constraint
-- [ ] Extract `Left:` / `Right:` pubkey pairs from constraint failures and surface them as expected vs actual
-- [ ] **Anchor account errors (3000–3999):** discriminator mismatch, not initialized, owner mismatch → map to the offending account
-- [ ] **Panic symbolization:** regex `panicked at '<msg>', <file>:<line>:<col>` — this is already an exact source location, no inference needed
-- [ ] Classify common panic messages (overflow, unwrap on None, index out of bounds, division by zero) with plain-English explanations
-- [ ] **Compute budget exhaustion:** detect `exceeded CUs meter`, report `unitsConsumed` vs the limit, and which instruction burned the budget
-- [ ] **Stack violations:** parse `Access violation in stack frame N` → explain the 4KB frame limit and typical causes
-- [ ] Native program error tables: SPL Token, Associated Token, System, Stake — static code → name/message maps
-- [ ] Confidence field on every result: `exact` | `narrowed` | `variant-only` | `unknown`
+- [x] **Anchor constraint errors:** parse `AnchorError caused by account: <name>` → account struct field name + which `#[account(...)]` constraint
+- [x] Extract `Left:` / `Right:` pubkey pairs from constraint failures and surface them as expected vs actual — in both shapes Anchor emits them, inline for integers and split across lines for pubkeys
+- [x] **Anchor account errors:** discriminator mismatch, not initialized, owner mismatch → map to the offending account
+- [x] **Anchor throw sites:** `AnchorError thrown in <file>:<line>` is an exact source location the program printed about itself — worth more than the account form and free from the same log line
+- [x] Handler names from Anchor's `Program log: Instruction: <Handler>` prologue, read from the *failing frame only* — a CPI callee logs one too
+- [x] **Panic symbolization:** both Rust formats — `panicked at '<msg>', <file>:<line>:<col>` and the 1.73+ form where the message follows a newline inside the same log entry
+- [x] Classify common panic messages (overflow, unwrap on None, index out of bounds, division by zero) with plain-English explanations
+- [x] **Compute budget exhaustion:** detect `exceeded CUs meter`, report `unitsConsumed` vs the limit and the `SetComputeUnitLimit` the client requested, and which frame burned the budget
+- [x] **Stack violations:** parse `Access violation in stack frame N` → explain the 4KB frame limit and typical causes
+- [x] Native program error tables: SPL Token, Token-2022, Associated Token, System, Stake — static code → name/message maps, keyed on the pinned program address and never on a code range
+- [x] Plain-English explanations for the runtime's own `InstructionError` variants
+- [x] Confidence field on every result: `exact` | `narrowed` | `variant-only` | `unknown`
 
 **Done when:** the tool gives a genuinely useful answer for constraint violations and panics with no source code and no build infrastructure at all.
+
+Two rules were settled here and bind every later phase:
+
+- **`exact` requires a source location.** An account-attributed Anchor error is read rather than inferred, and still caps at `variant-only`, because it locates a field in an accounts struct rather than a line. `exact` therefore never appears with an empty candidate list, and that is asserted across the corpus.
+- **Nothing is named from a code range.** Anchor reserves 2000–2999 and 3000–3999 by convention, not by anything the runtime enforces, and the corpus contains two Whirlpool failures returning `Custom(2012)` with no Anchor logging at all. A code the program did not publish a name for stays a number until Phase 2 resolves an IDL. Error tables are permitted only where the program's address is pinned and its error enum published.
 
 ---
 
@@ -66,7 +74,7 @@ Connecting an on-chain program to the code that produced it. Correctness-critica
 
 Turning an error variant into a small set of candidate throw sites.
 
-- [ ] Parse instruction data: first 8 bytes → discriminator → handler name (via IDL)
+- [ ] Parse instruction data: first 8 bytes → discriminator → handler name (via IDL). Anchor programs already log their handler name, and Phase 1 reads it — this is for the programs that do not, and to name handlers in frames that never logged a prologue
 - [ ] Static analysis pass over the resolved source: index every `require!`, `require_eq!`, `require_keys_eq!`, `err!`, `return Err(...)` with file, line, and the error variant it raises
 - [ ] Call graph from handler entry points; reachability filter to drop throw sites the failing handler can't reach
 - [ ] **CPI progress bounding:** compare observed inner instructions against CPI call sites in the handler — failure is bounded between the last completed CPI and the next one

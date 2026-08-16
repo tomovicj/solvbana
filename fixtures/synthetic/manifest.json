@@ -1,5 +1,5 @@
 {
-  "_comment": "Hand-written edge cases that a block scan will not reliably produce. Kept apart from fixtures/manifest.json so re-running scripts/harvest.ts can never clobber them.",
+  "_comment": "Hand-written edge cases that a block scan will not reliably produce. Kept apart from fixtures/manifest.json so re-running scripts/harvest.ts can never clobber them. `phase1` records what reading the logs must establish, checked by hand against the fixture rather than generated from the analyzer.",
   "entries": [
     {
       "file": "truncated-logs.json",
@@ -11,7 +11,17 @@
       "expectAbsentLogs": false,
       "expectUnresolvedLookups": false,
       "expectCpiDepthUnavailable": false,
-      "note": "The runtime's `Log truncated` marker is present, so the panic message that would have followed is gone. Truncation must be reported, and lines after the marker must not be attributed to an instruction."
+      "note": "The runtime's `Log truncated` marker is present, so the panic message that would have followed is gone. Truncation must be reported, and lines after the marker must not be attributed to an instruction.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "MyProg1111111111111111111111111111111111111",
+        "handler": "Withdraw",
+        "errorName": "ProgramFailedToComplete",
+        "errorNumber": null,
+        "site": null,
+        "account": null,
+        "note": "The frame never closed, so nothing says what the program did after `checkpoint 2`. The runtime variant is still nameable from meta.err, but no site may be claimed."
+      }
     },
     {
       "file": "unresolved-lookups.json",
@@ -23,7 +33,17 @@
       "expectAbsentLogs": false,
       "expectUnresolvedLookups": true,
       "expectCpiDepthUnavailable": false,
-      "note": "Addresses loaded from a lookup table are missing from the response. Ingest reports the gap instead of reading the table's current contents, which may have been extended since this slot."
+      "note": "Addresses loaded from a lookup table are missing from the response. Ingest reports the gap instead of reading the table's current contents, which may have been extended since this slot.",
+      "phase1": {
+        "confidence": "unknown",
+        "program": "MyProg1111111111111111111111111111111111111",
+        "handler": "Withdraw",
+        "errorName": null,
+        "errorNumber": 6001,
+        "site": null,
+        "account": null,
+        "note": "A bare Custom(6001) from a program that published no name for it. 6001 is in the range Anchor gives user-declared errors, which is exactly why it must not be named: the range is a convention, not evidence. The handler is still readable from the Anchor prologue."
+      }
     },
     {
       "file": "null-stack-height.json",
@@ -35,7 +55,17 @@
       "expectAbsentLogs": false,
       "expectUnresolvedLookups": false,
       "expectCpiDepthUnavailable": true,
-      "note": "CPI depth was never recorded for this transaction, so the two inner instructions are listed flat under instruction 0 and the node is flagged. Phase 3's CPI-progress bounding must not treat the fallback as real depth."
+      "note": "CPI depth was never recorded for this transaction, so the two inner instructions are listed flat under instruction 0 and the node is flagged. Phase 3's CPI-progress bounding must not treat the fallback as real depth.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "MyProg1111111111111111111111111111111111111",
+        "handler": null,
+        "errorName": "ConstraintSeeds",
+        "errorNumber": 2006,
+        "site": null,
+        "account": "vault",
+        "note": "Missing stackHeight is an instruction-tree problem, not a log problem: the log stream still brackets correctly, so the Anchor error is read exactly as it would be otherwise."
+      }
     },
     {
       "file": "unrecognized-error.json",
@@ -47,7 +77,17 @@
       "expectAbsentLogs": false,
       "expectUnresolvedLookups": false,
       "expectCpiDepthUnavailable": false,
-      "note": "A variant no parser version has seen. It reaches the output with its raw value retained rather than throwing, because new runtime variants ship independently of this code."
+      "note": "A variant no parser version has seen. It reaches the output with its raw value retained rather than throwing, because new runtime variants ship independently of this code.",
+      "phase1": {
+        "confidence": "unknown",
+        "program": "MyProg1111111111111111111111111111111111111",
+        "handler": null,
+        "errorName": null,
+        "errorNumber": null,
+        "site": null,
+        "account": null,
+        "note": "The logs still bracket a failed frame, so the originating program is known even though nothing names the error. An unparseable meta.err must degrade to that rather than throw."
+      }
     },
     {
       "file": "no-logs.json",
@@ -59,7 +99,17 @@
       "expectAbsentLogs": true,
       "expectUnresolvedLookups": false,
       "expectCpiDepthUnavailable": false,
-      "note": "The leanest tier that must still answer: error kind and failing instruction index, with the absence of logs stated rather than glossed over."
+      "note": "The leanest tier that must still answer: error kind and failing instruction index, with the absence of logs stated rather than glossed over.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": null,
+        "handler": null,
+        "errorName": "InsufficientFunds",
+        "errorNumber": null,
+        "site": null,
+        "account": null,
+        "note": "With no logs there are no frames, so no program can be named as the originator. The runtime's own variant is still in meta.err and must still be reported with its explanation — dropping it because the logs were off would be a blank failure rather than a degraded one."
+      }
     },
     {
       "file": "transaction-level-error.json",
@@ -71,7 +121,61 @@
       "expectAbsentLogs": false,
       "expectUnresolvedLookups": false,
       "expectCpiDepthUnavailable": false,
-      "note": "A transaction-level error. The summary must not name a failing instruction, because none is responsible."
+      "note": "A transaction-level error. The summary must not name a failing instruction, because none is responsible.",
+      "phase1": {
+        "confidence": "unknown",
+        "program": null,
+        "handler": null,
+        "errorName": null,
+        "errorNumber": null,
+        "site": null,
+        "account": null,
+        "note": "No instruction failed, so there is no failing frame and nothing for the log detectors to read."
+      }
+    },
+    {
+      "file": "stack-violation.json",
+      "case": "4KB stack frame overrun",
+      "failingInstructionIndex": 0,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "expectAbsentLogs": false,
+      "expectUnresolvedLookups": false,
+      "expectCpiDepthUnavailable": false,
+      "note": "The access violation is logged as program output while the frame fails with a generic `Program failed to complete`, so it is only findable inside the frame's own lines. No compute budget increase fixes it, which is why it must not be reported as budget exhaustion.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "MyProg1111111111111111111111111111111111111",
+        "handler": "Settle",
+        "errorName": "ProgramFailedToComplete",
+        "errorNumber": null,
+        "site": null,
+        "account": null,
+        "note": "The frame used 4,218 of 200,000 compute units, so nothing about the budget is at fault."
+      }
+    },
+    {
+      "file": "native-custom-error.json",
+      "case": "pinned native program returning its own Custom code",
+      "failingInstructionIndex": 0,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "expectAbsentLogs": false,
+      "expectUnresolvedLookups": false,
+      "expectCpiDepthUnavailable": false,
+      "note": "The only code-to-name mapping this tier permits: the failing program's address is read from the logs, and that address is immutable with a published error enum behind it.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "handler": "Transfer",
+        "errorName": "InsufficientFunds",
+        "errorNumber": 1,
+        "site": null,
+        "account": null,
+        "note": "Custom(1) in spl_token::error::TokenError. Naming it turns on the program identity, not on the number falling in some range."
+      }
     }
   ]
 }

@@ -8,12 +8,34 @@ export const TRANSACTIONS_DIR = join(FIXTURES_DIR, 'transactions');
 export const MANIFEST_PATH = join(FIXTURES_DIR, 'manifest.json');
 
 /**
+ * What Phase 1 must read out of this fixture's logs, checked by hand.
+ *
+ * Every field here is legible in `meta.logMessages` and `meta.err` without
+ * running the analyzer, which is the point: an expectation generated from the
+ * parser's own output would pass no matter what the parser did.
+ */
+export interface Phase1Expectation {
+  confidence: 'exact' | 'variant-only' | 'unknown';
+  /** The program that originated the failure — the innermost one, not the caller. */
+  program: string;
+  /** Anchor's `Instruction:` prologue in the *failing* frame, or `null` if it logged none. */
+  handler: string | null;
+  errorName: string | null;
+  /** The Anchor error number, or the raw `Custom(n)` when nothing named it. */
+  errorNumber: number | null;
+  /** Set only where the program printed its own throw site. */
+  site: { file: string; line: number } | null;
+  /** The accounts-struct field Anchor blamed, when it blamed one. */
+  account: string | null;
+}
+
+/**
  * One corpus entry.
  *
  * The expectations are the spec, so they are hand-checked rather than generated
  * from the parser's own output — a manifest written by the code under test would
  * assert nothing. The harvester fills in what it can read directly from the
- * ledger and leaves `note` for a human.
+ * ledger and leaves `note` and `phase1` for a human.
  */
 export interface FixtureEntry {
   signature: string;
@@ -31,6 +53,11 @@ export interface FixtureEntry {
   distinctnessKey: string;
   /** What actually went wrong, in one line. Written by hand. */
   note: string;
+  /**
+   * Written by hand after Phase 1. Absent on a freshly harvested entry, which is
+   * itself the signal that the new fixture still needs checking.
+   */
+  phase1?: Phase1Expectation;
 }
 
 export interface Manifest {

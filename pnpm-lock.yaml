@@ -11,6 +11,9 @@ importers:
       '@eslint/js':
         specifier: ^9.39.0
         version: 9.39.5
+      '@solvbana/core':
+        specifier: workspace:*
+        version: link:packages/core
       '@types/node':
         specifier: ^24.9.1
         version: 24.13.3

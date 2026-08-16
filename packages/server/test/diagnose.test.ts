@@ -48,14 +48,30 @@ describe('POST /diagnose', () => {
         logs: { truncated: boolean; lines: { event: { kind: string } }[] };
         accounts: { keys: unknown[] };
       };
+      finding: {
+        program: string | null;
+        error: { code: number | null; name: string | null; naming: string };
+        failure: { kind: string; account: string | null };
+        explanation: string;
+      };
     }>();
 
     expect(body.signature).toBe(VALID_SIGNATURE);
-    expect(body.confidence).toBe('unknown');
-    // No location may be invented while the later tiers are unimplemented.
+    // Anchor named the error and blamed an account, but named no line.
+    expect(body.confidence).toBe('variant-only');
     expect(body.candidates).toEqual([]);
     // A weak answer always explains itself.
     expect(body.reasons.length).toBeGreaterThan(0);
+
+    // The finding survives serialization intact; Phase 4 renders from these
+    // fields rather than re-parsing the summary.
+    expect(body.finding.error).toMatchObject({
+      code: 2006,
+      name: 'ConstraintSeeds',
+      naming: 'logged',
+    });
+    expect(body.finding.failure).toMatchObject({ kind: 'anchor', account: 'vault' });
+    expect(body.finding.explanation).toMatch(/PDA/);
 
     expect(body.summary).toMatch(/Instruction 1 of 1 failed/);
     expect(body.transaction.error).toMatchObject({ kind: 'instruction-error', index: 0 });

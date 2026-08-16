@@ -1,3 +1,5 @@
+import { analyze } from './analyze/analyze.ts';
+import type { Finding } from './analyze/types.ts';
 import { unknownDiagnosis, type Diagnosis } from './diagnosis.ts';
 import { describeTransactionError, failingInstructionIndex } from './ingest/error.ts';
 import { normalizeTransaction } from './ingest/normalize.ts';
@@ -10,38 +12,51 @@ export interface DiagnoseDeps {
 }
 
 /**
- * One-line statement of what failed, built from whatever ingest established.
+ * How the failure is named in one line.
  *
- * Phase 0 has the failing instruction and the raw error variant but no IDL, so
- * `Custom(6001)` stays a number here. Naming it is Phase 2's job.
+ * Prefers the name the program published over the raw code, since `Custom(6040)`
+ * and `BuySlippageBelowMinBaseAmountOut (6040)` carry very different amounts of
+ * information for the same number of characters.
  */
-function summarize(transaction: FailedTransaction): string {
-  const { error, instructions } = transaction;
-  const description = describeTransactionError(error);
-  const index = failingInstructionIndex(error);
+function describeFailure(transaction: FailedTransaction, finding: Finding): string {
+  const { name, code } = finding.error;
+  if (name === null) return describeTransactionError(transaction.error);
+  return code === null ? name : `${name} (${String(code)})`;
+}
+
+/**
+ * One-line statement of what failed.
+ *
+ * The program named is the one that *originated* the failure, which for a CPI is
+ * not the program the failing top-level instruction addresses. Naming the outer
+ * program would point the reader at code that only passed the error along.
+ */
+function summarize(transaction: FailedTransaction, finding: Finding): string {
+  const { instructions } = transaction;
+  const description = describeFailure(transaction, finding);
+  const index = failingInstructionIndex(transaction.error);
 
   if (index === null) {
     return `Transaction failed with ${description}.`;
   }
 
-  const node = instructions[index];
-  const total = instructions.length;
-  const program = node?.programId ?? 'an unresolved program';
+  const program = finding.program ?? instructions[index]?.programId ?? 'an unresolved program';
+  const handler = finding.handler === null ? '' : ` (handler ${finding.handler})`;
 
   return (
-    `Instruction ${String(index + 1)} of ${String(total)} failed in ${program} ` +
-    `with ${description}.`
+    `Instruction ${String(index + 1)} of ${String(instructions.length)} failed in ` +
+    `${program}${handler} with ${description}.`
   );
 }
 
 /**
  * Entry point for the tier cascade.
  *
- * Phase 0 (ingest & normalize) is implemented: the transaction is fetched and
- * turned into a typed structure naming the failing instruction, its error, and
- * the log stream around it. Confidence stays `unknown` because decoding
- * `Custom(6001)` as a number is short of even `variant-only` — that needs the
- * IDL's variant name and `#[msg]` text, which arrives in Phase 2.
+ * Phase 0 (ingest) and Phase 1 (log analysis) are implemented: the transaction is
+ * fetched, normalized, and read for everything its own logs disclose — panics and
+ * Anchor throw sites with a file and line, Anchor variant names and `#[msg]` text,
+ * compute exhaustion, and the runtime's own error classifications. Nothing here
+ * fetches source or an IDL; that is Phase 2.
  *
  * The contract every later tier has to honour is visible here: always answer,
  * never throw for an undiagnosable input, and always say what the answer is
@@ -67,20 +82,21 @@ export async function diagnose(signature: string, deps: DiagnoseDeps): Promise<D
   }
 
   const transaction = normalizeTransaction(outcome.raw, signature);
+  const analysis = analyze(transaction);
 
   return {
     signature,
-    confidence: 'unknown',
-    summary: summarize(transaction),
-    candidates: [],
+    confidence: analysis.confidence,
+    summary: summarize(transaction, analysis.finding),
+    candidates: analysis.candidates,
     reasons: [
-      'Ingest only: the error variant is decoded but not yet named, and no source has been ' +
-        'resolved, so no throw site can be located yet.',
+      ...analysis.reasons,
       ...(outcome.endpoint === 'archive'
         ? ['Retrieved from the archive endpoint; the primary endpoint no longer retains it.']
         : []),
       ...transaction.degradations,
     ],
     transaction,
+    finding: analysis.finding,
   };
 }

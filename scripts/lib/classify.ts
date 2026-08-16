@@ -1,3 +1,5 @@
+import { NATIVE_PROGRAM_IDS } from '@solvbana/core';
+
 /**
  * The five failure categories the fixture corpus has to span, per Phase 0.
  *
@@ -24,26 +26,6 @@ export const CATEGORIES: readonly Category[] = [
   'native-program',
   'runtime-error',
 ];
-
-/**
- * Programs with a static, published error table.
- *
- * Phase 1 maps their error codes to names and messages from a built-in table, no
- * IDL required, which is why they are worth a category of their own. A named
- * runtime error thrown by any *other* program looks identical in `meta.err` but
- * has no such table behind it — calling both "native program errors" would
- * overstate what Phase 1 can decode.
- */
-const NATIVE_PROGRAM_IDS = new Set([
-  '11111111111111111111111111111111', // System
-  'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', // SPL Token
-  'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb', // Token-2022
-  'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL', // Associated Token
-  'Stake11111111111111111111111111111111111111', // Stake
-  'Vote111111111111111111111111111111111111111', // Vote
-  'BPFLoaderUpgradeab1e11111111111111111111111', // BPF Loader Upgradeable
-  'ComputeBudget111111111111111111111111111111', // Compute Budget
-]);
 
 export interface ClassifyInput {
   err: unknown;
