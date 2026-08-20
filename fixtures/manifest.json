@@ -121,6 +121,14 @@
         "errorNumber": 3012,
         "site": null,
         "account": "user_base_token_account"
+      },
+      "phase4": {
+        "namedAccounts": true,
+        "derivation": {
+          "account": "user_base_token_account",
+          "status": "match",
+          "source": "associated-token"
+        }
       }
     },
     {
@@ -161,6 +169,14 @@
         "errorNumber": 3012,
         "site": null,
         "account": "associated_user"
+      },
+      "phase4": {
+        "namedAccounts": true,
+        "derivation": {
+          "account": "associated_user",
+          "status": "not-derivable",
+          "source": "associated-token"
+        }
       }
     },
     {
@@ -332,6 +348,9 @@
         "naming": "anchor-builtin",
         "handler": "increase_liquidity_v2",
         "handlerSource": "discriminator"
+      },
+      "phase4": {
+        "namedAccounts": false
       }
     },
     {
@@ -443,6 +462,9 @@
         "naming": "anchor-builtin",
         "handler": "increase_liquidity_v2",
         "handlerSource": "discriminator"
+      },
+      "phase4": {
+        "namedAccounts": false
       }
     },
     {
@@ -569,6 +591,14 @@
         "errorNumber": 3012,
         "site": null,
         "account": "associated_user"
+      },
+      "phase4": {
+        "namedAccounts": true,
+        "derivation": {
+          "account": "associated_user",
+          "status": "not-derivable",
+          "source": "associated-token"
+        }
       }
     },
     {
@@ -815,6 +845,14 @@
         "errorNumber": 3012,
         "site": null,
         "account": "user_base_token_account"
+      },
+      "phase4": {
+        "namedAccounts": true,
+        "derivation": {
+          "account": "user_base_token_account",
+          "status": "match",
+          "source": "associated-token"
+        }
       }
     },
     {
@@ -855,6 +893,9 @@
         "errorNumber": 3012,
         "site": null,
         "account": "pod_meta"
+      },
+      "phase4": {
+        "namedAccounts": false
       }
     },
     {

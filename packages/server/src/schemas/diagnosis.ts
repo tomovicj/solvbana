@@ -4,6 +4,7 @@ import {
   walkInstructions,
   type Deployment,
   type Diagnosis,
+  type Explanation,
   type FailedTransaction,
   type Finding,
   type Resolution,
@@ -124,6 +125,22 @@ const LogStreamSchema = Type.Object({
 });
 
 /** Slot, blockTime, fee and compute units are `bigint` in core; JSON has no bigint. */
+const LamportBalanceSchema = Type.Object({
+  index: Type.Integer(),
+  pre: Type.String(),
+  post: Type.String(),
+});
+
+const TokenBalanceSchema = Type.Object({
+  index: Type.Integer(),
+  mint: Type.String(),
+  owner: Type.Union([Type.String(), Type.Null()]),
+  tokenProgram: Type.Union([Type.String(), Type.Null()]),
+  decimals: Type.Integer(),
+  pre: Type.Union([Type.String(), Type.Null()]),
+  post: Type.Union([Type.String(), Type.Null()]),
+});
+
 const FailedTransactionSchema = Type.Object({
   signature: Type.String(),
   slot: Type.String(),
@@ -134,6 +151,8 @@ const FailedTransactionSchema = Type.Object({
   accounts: AccountKeysSchema,
   error: TransactionErrorSchema,
   instructions: Type.Array(InstructionSchema),
+  lamports: Type.Array(LamportBalanceSchema),
+  tokenBalances: Type.Array(TokenBalanceSchema),
   logs: LogStreamSchema,
   degradations: Type.Array(Type.String()),
 });
@@ -233,7 +252,20 @@ const VerificationSchema = Type.Union([
       lastVerifiedAt: NullableString,
     }),
   }),
-  Type.Object({ kind: Type.Literal('unverified'), reason: Type.String() }),
+  Type.Object({
+    kind: Type.Literal('unverified'),
+    reason: Type.String(),
+    candidate: Type.Union([
+      Type.Object({
+        repoUrl: Type.String(),
+        commit: Type.String(),
+        hash: Type.String(),
+        registryOnChainHash: NullableString,
+        lastVerifiedAt: NullableString,
+      }),
+      Type.Null(),
+    ]),
+  }),
   Type.Object({ kind: Type.Literal('not-applicable'), reason: Type.String() }),
   Type.Object({ kind: Type.Literal('unavailable'), reason: Type.String() }),
 ]);
@@ -265,6 +297,123 @@ const FindingSchema = Type.Object({
   resolution: Type.Optional(ResolutionSchema),
 });
 
+const NullableBigIntString = Type.Union([Type.String(), Type.Null()]);
+
+const TokenSummarySchema = Type.Object({
+  mint: Type.String(),
+  owner: Type.Union([Type.String(), Type.Null()]),
+  tokenProgram: Type.Union([Type.String(), Type.Null()]),
+  decimals: Type.Integer(),
+  pre: NullableBigIntString,
+  post: NullableBigIntString,
+});
+
+const AccountRowSchema = Type.Object({
+  position: Type.Integer(),
+  index: Type.Integer(),
+  address: Type.Union([Type.String(), Type.Null()]),
+  name: Type.Union([Type.String(), Type.Null()]),
+  signer: Type.Boolean(),
+  writable: Type.Boolean(),
+  origin: Type.Union([
+    Type.Literal('static'),
+    Type.Literal('lookup-writable'),
+    Type.Literal('lookup-readonly'),
+    Type.Null(),
+  ]),
+  lamports: Type.Union([Type.Object({ pre: Type.String(), post: Type.String() }), Type.Null()]),
+  existedBefore: Type.Union([Type.Boolean(), Type.Null()]),
+  token: Type.Union([TokenSummarySchema, Type.Null()]),
+});
+
+const ResolvedSeedSchema = Type.Object({
+  kind: Type.Union([Type.Literal('const'), Type.Literal('account'), Type.Literal('arg')]),
+  source: Type.String(),
+  bytes: Type.Union([Type.String(), Type.Null()]),
+  text: Type.Union([Type.String(), Type.Null()]),
+  address: Type.Union([Type.String(), Type.Null()]),
+});
+
+const DerivationCheckSchema = Type.Object({
+  account: Type.String(),
+  position: Type.Union([Type.Integer(), Type.Null()]),
+  actual: Type.Union([Type.String(), Type.Null()]),
+  expected: Type.Union([Type.String(), Type.Null()]),
+  bump: Type.Union([Type.Integer(), Type.Null()]),
+  programId: Type.String(),
+  seeds: Type.Array(ResolvedSeedSchema),
+  status: Type.Union([
+    Type.Literal('match'),
+    Type.Literal('mismatch'),
+    Type.Literal('unresolved'),
+    Type.Literal('not-derivable'),
+  ]),
+  source: Type.Union([Type.Literal('idl-pda'), Type.Literal('associated-token')]),
+  blockedBy: Type.Union([Type.String(), Type.Null()]),
+  searched: Type.Union([Type.String(), Type.Null()]),
+});
+
+const DecodedArgSchema = Type.Object({
+  name: Type.String(),
+  type: Type.String(),
+  value: Type.Union([Type.String(), Type.Null()]),
+});
+
+const ComputeBreakdownSchema = Type.Object({
+  total: NullableBigIntString,
+  requestedLimit: Type.Union([Type.Integer(), Type.Null()]),
+  frames: Type.Array(
+    Type.Object({
+      programId: Type.String(),
+      depth: Type.Integer(),
+      consumed: Type.Union([Type.Integer(), Type.Null()]),
+      budget: Type.Union([Type.Integer(), Type.Null()]),
+      failing: Type.Boolean(),
+    }),
+  ),
+});
+
+const BalanceDeltasSchema = Type.Object({
+  lamports: Type.Array(
+    Type.Object({
+      index: Type.Integer(),
+      address: Type.Union([Type.String(), Type.Null()]),
+      pre: Type.String(),
+      post: Type.String(),
+      delta: Type.String(),
+    }),
+  ),
+  tokens: Type.Array(
+    Type.Object({
+      index: Type.Integer(),
+      address: Type.Union([Type.String(), Type.Null()]),
+      mint: Type.String(),
+      owner: Type.Union([Type.String(), Type.Null()]),
+      decimals: Type.Integer(),
+      pre: NullableBigIntString,
+      post: NullableBigIntString,
+      delta: NullableBigIntString,
+    }),
+  ),
+  fee: Type.String(),
+});
+
+const GuidanceSchema = Type.Object({
+  meaning: Type.String(),
+  causes: Type.Array(Type.String()),
+  fix: Type.Union([Type.String(), Type.Null()]),
+});
+
+const ExplanationSchema = Type.Object({
+  accounts: Type.Array(AccountRowSchema),
+  args: Type.Union([Type.Array(DecodedArgSchema), Type.Null()]),
+  derivations: Type.Array(DerivationCheckSchema),
+  compute: Type.Union([ComputeBreakdownSchema, Type.Null()]),
+  deltas: BalanceDeltasSchema,
+  guidance: GuidanceSchema,
+  notes: Type.Array(Type.String()),
+});
+
 export const DiagnosisSchema = Type.Object({
   signature: Type.String(),
   confidence: ConfidenceSchema,
@@ -273,6 +422,7 @@ export const DiagnosisSchema = Type.Object({
   reasons: Type.Array(Type.String()),
   transaction: Type.Optional(FailedTransactionSchema),
   finding: Type.Optional(FindingSchema),
+  explanation: Type.Optional(ExplanationSchema),
 });
 
 export const DiagnoseBody = Type.Object(
@@ -287,6 +437,7 @@ export type DiagnoseBody = Static<typeof DiagnoseBody>;
 export type DiagnosisWire = Static<typeof DiagnosisSchema>;
 export type FailedTransactionWire = Static<typeof FailedTransactionSchema>;
 export type FindingWire = Static<typeof FindingSchema>;
+export type ExplanationWire = Static<typeof ExplanationSchema>;
 
 /**
  * Compile-time guard: the wire schema drives response serialization, so if core
@@ -342,6 +493,46 @@ export const DEPLOYMENT_SCHEMA_COVERS_CORE: Deployment['kind'] extends NonNullab
   ? true
   : never = true;
 
+/**
+ * The explanation is the largest structure on the wire and the one a consumer
+ * renders directly, so a member lost to drift would silently remove a whole
+ * section — an unnamed account, a derivation that never appears — without
+ * breaking anything visible here. The derivation status is checked separately
+ * because it grows every time a new kind of check is added, and a missing member
+ * would serialize away into a status the reader cannot distinguish from "not
+ * checked".
+ */
+export const EXPLANATION_SCHEMA_COVERS_CORE: keyof Explanation extends keyof ExplanationWire
+  ? true
+  : never = true;
+
+export const DERIVATION_STATUS_SCHEMA_COVERS_CORE: Explanation['derivations'][number]['status'] extends ExplanationWire['derivations'][number]['status']
+  ? true
+  : never = true;
+
+type VerificationWire = Static<typeof VerificationSchema>;
+type VerificationCore = NonNullable<Resolution['verification']>;
+
+/**
+ * Key parity per union member, because `keyof` on a union sees only the keys its
+ * members share — so a field added to one variant slips past a whole-type guard
+ * and is silently stripped on the wire. `unverified` grew a `candidate` exactly
+ * that way.
+ */
+export const VERIFICATION_VERIFIED_SCHEMA_COVERS_CORE: keyof Extract<
+  VerificationCore,
+  { kind: 'verified' }
+> extends keyof Extract<VerificationWire, { kind: 'verified' }>
+  ? true
+  : never = true;
+
+export const VERIFICATION_UNVERIFIED_SCHEMA_COVERS_CORE: keyof Extract<
+  VerificationCore,
+  { kind: 'unverified' }
+> extends keyof Extract<VerificationWire, { kind: 'unverified' }>
+  ? true
+  : never = true;
+
 function toTransactionWire(transaction: FailedTransaction): FailedTransactionWire {
   return {
     signature: transaction.signature,
@@ -362,8 +553,92 @@ function toTransactionWire(transaction: FailedTransaction): FailedTransactionWir
       data: node.data,
       cpiDepthUnavailable: node.cpiDepthUnavailable,
     })),
+    lamports: transaction.lamports.map((row) => ({
+      index: row.index,
+      pre: String(row.pre),
+      post: String(row.post),
+    })),
+    tokenBalances: transaction.tokenBalances.map((row) => ({
+      index: row.index,
+      mint: row.mint,
+      owner: row.owner,
+      tokenProgram: row.tokenProgram,
+      decimals: row.decimals,
+      pre: row.pre === null ? null : String(row.pre),
+      post: row.post === null ? null : String(row.post),
+    })),
     logs: transaction.logs,
     degradations: transaction.degradations,
+  };
+}
+
+/**
+ * Convert an explanation into its wire representation.
+ *
+ * Every `bigint` narrows to a decimal string, as everywhere else here, because
+ * JSON has no bigint and a lamport or token amount can exceed `Number`.
+ */
+function toExplanationWire(explanation: Explanation): ExplanationWire {
+  const optional = (value: bigint | null): string | null => (value === null ? null : String(value));
+
+  return {
+    accounts: explanation.accounts.map((row) => ({
+      position: row.position,
+      index: row.index,
+      address: row.address,
+      name: row.name,
+      signer: row.signer,
+      writable: row.writable,
+      origin: row.origin,
+      lamports:
+        row.lamports === null
+          ? null
+          : { pre: String(row.lamports.pre), post: String(row.lamports.post) },
+      existedBefore: row.existedBefore,
+      token:
+        row.token === null
+          ? null
+          : {
+              mint: row.token.mint,
+              owner: row.token.owner,
+              tokenProgram: row.token.tokenProgram,
+              decimals: row.token.decimals,
+              pre: optional(row.token.pre),
+              post: optional(row.token.post),
+            },
+    })),
+    args: explanation.args,
+    derivations: explanation.derivations,
+    compute:
+      explanation.compute === null
+        ? null
+        : {
+            total: optional(explanation.compute.total),
+            requestedLimit: explanation.compute.requestedLimit,
+            frames: explanation.compute.frames,
+          },
+    deltas: {
+      lamports: explanation.deltas.lamports.map((row) => ({
+        index: row.index,
+        address: row.address,
+        pre: String(row.pre),
+        post: String(row.post),
+        delta: String(row.delta),
+      })),
+      tokens: explanation.deltas.tokens.map((row) => ({
+        index: row.index,
+        address: row.address,
+        mint: row.mint,
+        owner: row.owner,
+        decimals: row.decimals,
+        pre: optional(row.pre),
+        post: optional(row.post),
+        delta: optional(row.delta),
+      })),
+      fee: String(explanation.deltas.fee),
+    },
+    guidance: explanation.guidance,
+    notes: explanation.notes,
   };
 }
 
@@ -379,6 +654,9 @@ export function toDiagnosisWire(diagnosis: Diagnosis): DiagnosisWire {
       ? {}
       : { transaction: toTransactionWire(diagnosis.transaction) }),
     ...(diagnosis.finding === undefined ? {} : { finding: toFindingWire(diagnosis.finding) }),
+    ...(diagnosis.explanation === undefined
+      ? {}
+      : { explanation: toExplanationWire(diagnosis.explanation) }),
   };
 }
 

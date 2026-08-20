@@ -66,8 +66,9 @@ Connecting an on-chain program to the code that produced it. Correctness-critica
 - [x] Hash the resolved on-chain binary and confirm it matches the registry entry: `sha256(programData[45..])` with trailing zeros trimmed. The registry's own `on_chain_hash` is recomputed rather than believed
 - [x] The registry lookup is gated on the deployment check — an entry describes what is deployed *now*, so on a stale deployment it is a true statement about the wrong bytes
 - [x] Explicit unverified-program mode: error names and messages from IDL, no line numbers, confidence capped at `variant-only`
-- [ ] Local IDL upload path for programs without a published IDL
+- [ ] Local IDL upload path for programs without a published IDL — folded into Phase 3's local source path, since the two arrive together
 - [ ] Source fetch and cache by commit SHA — deferred to Phase 3, which is what consumes the tree
+- [x] Report a registry entry that rebuilds to the deployed binary but which the registry does not currently mark verified. The gate is unchanged and such an entry is never treated as a verified build; it is named, with the registry's own stale hash as the stated reason it did not qualify
 
 **Done when:** for a verified program, the tool can produce the exact source tree that was running at the failing slot — and refuses to guess when it can't.
 
@@ -75,13 +76,24 @@ The corpus reaches **7 `exact` / 32 `variant-only` / 6 `unknown`** with resoluti
 
 Note the corpus systematically under-represents the degrade paths. Harvested fixtures are always recent, so every real program in it still runs the binary that ran; `upgraded-since` exists only as a synthetic fixture, and must stay one.
 
+That is a statement about the recorded snapshots, not about mainnet. Between recording them and the Phase 4 work two of the 24 live programs redeployed — Whirlpool to slot 440170207 and ORE to 439924903, against snapshots read at roughly 439652000 — so a live diagnosis of those same signatures now refuses at the deployment check. Roughly 8% of the programs in two days. `upgraded-since` is the ordinary outcome for anything but a fresh signature, and the frozen snapshots are the only reason the suite did not quietly start describing different binaries.
+
+This makes `pnpm snapshot` a trap rather than a routine refresh: re-running it today would flip Whirlpool to `upgraded-since` and delete the corpus's only live-plus-IDL-plus-`anchor-builtin` coverage. It should refuse to overwrite a snapshot whose `lastDeploySlot` has moved, and report what it found instead.
+
 ---
 
 ## Phase 3 — Inference & Narrowing
 
 Turning an error variant into a small set of candidate throw sites.
 
+**Deferred after measurement.** The phase rests on fetching the source tree at the verified commit Phase 2 resolves, and the corpus says that tree is almost never available. Of the 24 live corpus programs, **3** have a verified build whose hash matches the deployed binary — SPL Token, GODL and Oridion. Five have registry entries where none is verified, and fifteen have no entry at all.
+
+That leaves **4 of 45 transactions** failing in a verified program, and none of the four is a case this phase would answer. Two are SPL Token, which is not Anchor and has no `require!` grammar to index, and whose errors the pinned native table already names. One is GODL, already `exact` from a panic. One is Oridion's `AccountNotInitialized`, an Anchor accounts-struct error that a throw-site index would not find. Building the phase as written would move zero fixtures and its own regression metrics could not be computed.
+
+The blocker is that verified builds are rare, not that static analysis is hard. The realistic unlock is a **local source path** — a developer debugging their own program has the tree checked out — which also subsumes the local-IDL item deferred out of Phase 2. Confidence would cap below `exact` for anything derived from such a tree, since it is not hash-proven against the deployed binary.
+
 - [x] Parse instruction data: first 8 bytes → discriminator → handler name (via IDL). Done in Phase 2 — Anchor programs log their handler name and Phase 1 reads it, and the discriminator covers the ones that do not
+- [ ] Accept a local source tree and a local IDL, cross-checked against the on-chain IDL and the observed discriminators
 - [ ] Fetch and cache the source tree at the verified commit Phase 2 resolved
 - [ ] Static analysis pass over the resolved source: index every `require!`, `require_eq!`, `require_keys_eq!`, `err!`, `return Err(...)` with file, line, and the error variant it raises
 - [ ] Call graph from handler entry points; reachability filter to drop throw sites the failing handler can't reach
@@ -90,8 +102,11 @@ Turning an error variant into a small set of candidate throw sites.
 - [ ] Combine all filters; rank surviving candidates
 - [ ] Report the full candidate set when more than one survives — never present a guess as certainty
 - [ ] Regression check: on the fixture corpus, measure how often the correct site is (a) uniquely identified, (b) in the top 3
+- [ ] Before any of the above: harvest fixtures that can measure it. The corpus contains no `ConstraintSeeds` or `ConstraintHasOne` failure at all, so seed-derivation work currently has nothing to score against
 
 **Done when:** a `Custom(6001)` failure resolves to one or two `require!` sites in the correct handler, with the source excerpt shown.
+
+`narrowed` remains unused across the codebase, and a corpus test asserts it stays that way until this phase lands.
 
 ---
 
@@ -99,17 +114,32 @@ Turning an error variant into a small set of candidate throw sites.
 
 The actual differentiator. A line number is table stakes; the answer to "why" is the product.
 
-- [ ] Render the failing source with surrounding context, throw site highlighted
-- [ ] Show the constraint expression itself — for `ConstraintSeeds`, print the `seeds = [...]` from source alongside the Left/Right pubkeys so the wrong derivation is visible
-- [ ] Recompute expected PDAs from the source seeds and diff against actual — catch bump and seed-ordering mistakes explicitly
-- [ ] Account state table: for each account in the failing instruction, show owner, lamports, data length, and decoded type where the IDL allows
-- [ ] Balance delta view from `preBalances`/`postBalances` and token balances, with the note that failed transactions roll back everything but the fee
-- [ ] Compute unit breakdown per instruction
-- [ ] Explanation templates per error category — what this error means, the usual causes, what to check
-- [ ] Suggested fixes where the diagnosis is unambiguous (e.g. `AccountDidNotSerialize` → the computed `space` vs actual data length)
-- [ ] Shareable permalink per diagnosis
+Built **from the transaction record and the program's published IDL**, with no source tree and no account fetches. Everything reported here was recorded at the failing slot, which is what makes it usable where a current-state read would not be: a failed transaction rolls back, so an account the instruction found missing may well exist now.
+
+- [x] Recompute expected PDAs and diff against actual — from the IDL's `pda.seeds` rather than from source, plus the Associated Token program's pinned derivation. 571 seeded accounts across the corpus IDLs, of which 97.6% of seed components resolve from the transaction alone
+- [x] Account state table: position, address, IDL name, signer, writable, origin, lamports either side, and the recorded token balance with its mint, owner and token program
+- [x] Balance delta view from `preBalances`/`postBalances` and token balances, listing only what changed — on a failure that is the fee, and saying so answers the question the reader was about to ask
+- [x] Compute unit breakdown per frame, read from the runtime's own `consumed N of M` lines
+- [x] Instruction arguments decoded against the IDL's declared types
+- [x] Explanation templates per error category — what this error means, the usual causes, what to check
+- [x] Suggested fixes where the evidence is unambiguous
+- [ ] Render the failing source with surrounding context, throw site highlighted — waits on Phase 3, which is what produces a source tree
+- [ ] Show the constraint expression itself, alongside the Left/Right operands — same dependency
+- [ ] Owner and data length per account — not in the transaction record, and a current-state read would describe a different world than the one that failed
+- [ ] Shareable permalink per diagnosis — presentation, deferred with the rest of it
 
 **Done when:** the output tells someone what went wrong in their mental model, not just where the process stopped.
+
+### What the corpus shows
+
+Compute is attributed for all 45 fixtures, an account table is built for 38, names are attached for 19, arguments decode for 20, and 19 carry a concrete suggested fix. 37 IDL-declared PDA derivations reproduce the address that was passed and none contradicts one.
+
+The headline item nearly shipped wrong. **None of the 9 fixtures with a named offending account has IDL-declared seeds for that account** — five are missing associated token accounts, whose derivation belongs to the Associated Token program rather than to the failing program. Recomputing PDAs from declared seeds alone would have run on twelve fixtures and never once on the account that actually failed.
+
+Two rules came out of building it:
+
+- **This phase never changes `confidence` or `candidates`.** It explains what earlier tiers established and locates nothing new, so it cannot promote a diagnosis. A corpus test compares each diagnosis against the same diagnosis without the explanation and requires both to match.
+- **A derivation is proved, never inferred.** The associated-token check draws every candidate from the transaction's own accounts and mints; a hit means the derivation reproduced the address exactly. The negative is reported too, bounded by the search space it states — an address that is not the associated token account of anything the instruction passed is an address the client derived wrongly, which is the more useful of the two outcomes.
 
 ---
 

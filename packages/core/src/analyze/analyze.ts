@@ -251,7 +251,7 @@ function fromAnchor(
           'account, so the failure is identified without being located.'
         : `Anchor attributed the failure to the \`${anchor.account}\` account exactly, but that ` +
           'is a field in the accounts struct rather than a line of code. Locating the constraint ' +
-          'itself needs the source, which Phase 2 resolves.',
+          "itself would need the program's source, which is not fetched.",
       ...reasons,
     ],
   };
@@ -270,7 +270,8 @@ function blank(
       failure: { kind: 'undecoded' },
       explanation:
         'The transaction record does not say what went wrong beyond the error the runtime ' +
-        "reported. Naming the error needs the program's IDL, which Phase 2 resolves.",
+        'reported. Naming the code would need the error variants the program itself publishes, ' +
+        'and none were available for it.',
     },
     confidence: 'unknown',
     candidates: [],

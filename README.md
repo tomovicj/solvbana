@@ -2,7 +2,7 @@
 
 **Point it at a failed Solana transaction. It tells you which line of your program failed, and why.**
 
-> **Status: early development.** The architecture is settled; implementation is in progress. Phases 0, 1 and 2 are done: a signature resolves to a typed structure naming the failing instruction, its logs are read for everything they disclose on their own, and the failing program is resolved — proving whether the deployed binary is the one that ran, reading its IDL, and checking its hash against a verified-build registry. Against the 45-signature test corpus that currently lands 7 `exact`, 32 `variant-only`, and 6 `unknown`. Source fetching and throw-site indexing are Phase 3. See [ROADMAP.md](./ROADMAP.md) for what exists and what doesn't.
+> **Status: early development.** The architecture is settled; implementation is in progress. Phases 0, 1, 2 and 4 are done: a signature resolves to a typed structure naming the failing instruction, its logs are read for everything they disclose on their own, the failing program is resolved — proving whether the deployed binary is the one that ran, reading its IDL, and checking its hash against a verified-build registry — and the failure is then explained from the transaction record and that IDL. Against the 45-signature test corpus that lands 7 `exact`, 32 `variant-only`, and 6 `unknown`. **Phase 3 (source fetching and throw-site indexing) is deferred**: only 3 of the corpus's 24 live programs have a verified build, so there is almost no source to index. Source rendering in the example below is not implemented. See [ROADMAP.md](./ROADMAP.md) for what exists and what doesn't.
 
 ---
 

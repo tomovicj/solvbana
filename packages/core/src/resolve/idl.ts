@@ -22,10 +22,67 @@ export interface IdlErrorEntry {
   msg: string | null;
 }
 
+/** One component of an IDL-declared PDA derivation. */
+export interface IdlSeed {
+  kind: 'const' | 'account' | 'arg';
+  /** Literal bytes, for a `const` component. */
+  value: number[] | null;
+  /**
+   * The path the component reads, for `arg` and `account`.
+   *
+   * A bare name (`mint`) refers to an account passed to the instruction or to a
+   * declared argument. A dotted name (`pool.base_mint`) reads a field out of
+   * another account's data, which the transaction record does not contain.
+   */
+  path: string | null;
+}
+
+/** One account position an instruction declares. */
+export interface IdlAccountSpec {
+  name: string;
+  /** Declared seeds, when the IDL constrains this account to a PDA. */
+  seeds: IdlSeed[] | null;
+  /**
+   * The program the address derives under, when it is not the declaring program.
+   *
+   * Present on 155 of the 571 seeded accounts in the corpus — an associated
+   * token account derives under the Associated Token program, not under the
+   * program that declares it. Deriving everything under the declaring program
+   * turns each of those into a spurious mismatch, which is a confidently wrong
+   * answer about an account that was perfectly correct.
+   */
+  program: IdlSeed | null;
+  /**
+   * Whether the caller may omit this account.
+   *
+   * Load-bearing for positional naming: an omitted optional account shifts every
+   * account after it, and the IDL does not record which ones a given call
+   * supplied. Names therefore stop at the first optional account rather than
+   * risk labelling the rest wrongly.
+   */
+  optional: boolean;
+}
+
+/** One declared instruction argument. Its type is kept verbatim for decoding. */
+export interface IdlArg {
+  name: string;
+  type: unknown;
+}
+
 export interface IdlHandler {
   name: string;
   /** The 8 bytes that select this handler, hex-encoded for comparison and display. */
   discriminator: string;
+  /**
+   * Accounts in the order the instruction takes them, with composite groups
+   * flattened.
+   *
+   * Order is the whole point: instruction accounts are positional, while the IDL
+   * may nest them under named groups. Flattening in declaration order is what
+   * lets position N in the transaction be matched to a name.
+   */
+  accounts: IdlAccountSpec[];
+  args: IdlArg[];
 }
 
 export interface ResolvedIdl {
@@ -97,6 +154,82 @@ function parseErrors(raw: unknown): Map<number, IdlErrorEntry> {
   return errors;
 }
 
+function parseSeed(raw: unknown): IdlSeed | null {
+  const record = asRecord(raw);
+  const kind = asString(record?.['kind']);
+  if (kind !== 'const' && kind !== 'account' && kind !== 'arg') return null;
+
+  const value = record?.['value'];
+  return {
+    kind,
+    value: Array.isArray(value) ? (value as number[]) : null,
+    path: asString(record?.['path']),
+  };
+}
+
+/** The `pda` block: the seed list, and the program to derive under when it differs. */
+function parsePda(raw: unknown): { seeds: IdlSeed[] | null; program: IdlSeed | null } {
+  const pda = asRecord(raw);
+  const declared = pda?.['seeds'];
+  if (!Array.isArray(declared)) return { seeds: null, program: null };
+
+  const seeds: IdlSeed[] = [];
+  for (const entry of declared as unknown[]) {
+    const seed = parseSeed(entry);
+    // One component this reader cannot represent makes the whole derivation
+    // unusable, so the seed list is dropped rather than silently shortened.
+    if (seed === null) return { seeds: null, program: null };
+    seeds.push(seed);
+  }
+
+  return { seeds, program: pda?.['program'] === undefined ? null : parseSeed(pda['program']) };
+}
+
+/**
+ * Flatten an instruction's declared accounts into positional order.
+ *
+ * Anchor lets an accounts struct compose others, and the IDL mirrors that by
+ * nesting a group under its own `accounts` array. The runtime sees one flat list,
+ * so the nesting has to be walked in declaration order or every name after the
+ * first group lands on the wrong account.
+ */
+function parseAccounts(raw: unknown, into: IdlAccountSpec[] = []): IdlAccountSpec[] {
+  if (!Array.isArray(raw)) return into;
+
+  for (const entry of raw as unknown[]) {
+    const record = asRecord(entry);
+    if (record === null) continue;
+
+    if (Array.isArray(record['accounts'])) {
+      parseAccounts(record['accounts'], into);
+      continue;
+    }
+
+    const name = asString(record['name']);
+    if (name === null) continue;
+    // `optional` is the 0.30+ spelling, `isOptional` the earlier one.
+    const optional = record['optional'] === true || record['isOptional'] === true;
+    const pda = parsePda(record['pda']);
+    into.push({ name, seeds: pda.seeds, program: pda.program, optional });
+  }
+
+  return into;
+}
+
+function parseArgs(raw: unknown): IdlArg[] {
+  if (!Array.isArray(raw)) return [];
+
+  const args: IdlArg[] = [];
+  for (const entry of raw as unknown[]) {
+    const record = asRecord(entry);
+    const name = asString(record?.['name']);
+    if (name === null || record === null) continue;
+    args.push({ name, type: record['type'] });
+  }
+
+  return args;
+}
+
 function parseHandlers(raw: unknown): IdlHandler[] {
   if (!Array.isArray(raw)) return [];
 
@@ -111,7 +244,12 @@ function parseHandlers(raw: unknown): IdlHandler[] {
       ? Buffer.from(declared as number[]).toString('hex')
       : deriveDiscriminator(name);
 
-    handlers.push({ name, discriminator });
+    handlers.push({
+      name,
+      discriminator,
+      accounts: parseAccounts(record?.['accounts']),
+      args: parseArgs(record?.['args']),
+    });
   }
 
   return handlers;

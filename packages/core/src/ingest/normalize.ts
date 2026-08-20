@@ -1,4 +1,5 @@
 import { accountKeysFrom } from './accounts.ts';
+import { lamportBalancesFrom, tokenBalancesFrom } from './balances.ts';
 import { parseTransactionError } from './error.ts';
 import { instructionTreeFrom } from './instructions.ts';
 import { parseLogs } from './logs.ts';
@@ -65,6 +66,8 @@ export function normalizeTransaction(raw: RawTransaction, signature: string): Fa
     accounts,
     error: parseTransactionError(meta?.err ?? null),
     instructions: tree.nodes,
+    lamports: lamportBalancesFrom(raw),
+    tokenBalances: tokenBalancesFrom(raw),
     logs,
     degradations,
   };

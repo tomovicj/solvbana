@@ -111,6 +111,45 @@ export interface LogStream {
 }
 
 /**
+ * One account's lamport balance either side of the transaction.
+ *
+ * Recorded rather than derived: a failed transaction rolls every state change
+ * back except the fee, so these are what the ledger holds, not what the program
+ * intended. `index` addresses the flattened account key list.
+ */
+export interface LamportBalance {
+  index: number;
+  pre: bigint;
+  post: bigint;
+}
+
+/**
+ * One token account's balance either side of the transaction.
+ *
+ * Every field here was recorded at the failing slot, which is what makes this
+ * usable where a current-state account read would not be.
+ */
+export interface TokenBalance {
+  /** Index into the flattened account key list. */
+  index: number;
+  mint: string;
+  /** The wallet this token account belongs to, or `null` when the RPC omitted it. */
+  owner: string | null;
+  /**
+   * The token program that owns the account — classic Token or Token-2022.
+   *
+   * Load-bearing rather than cosmetic: it is one of the seeds of the associated
+   * token address, so assuming classic Token derives the wrong address for a
+   * Token-2022 mint. Both appear in the corpus.
+   */
+  tokenProgram: string | null;
+  decimals: number;
+  /** Fractional units, not whole tokens. `null` when that side was not recorded. */
+  pre: bigint | null;
+  post: bigint | null;
+}
+
+/**
  * The Phase 0 output: one normalized shape for legacy and v0 transactions alike,
  * which every later tier reads from.
  */
@@ -125,6 +164,15 @@ export interface FailedTransaction {
   error: TransactionError;
   /** Top-level instructions, with CPI children nested underneath. */
   instructions: InstructionNode[];
+  /**
+   * Lamport balances per account, from `meta.preBalances` / `meta.postBalances`.
+   *
+   * Covers every account the transaction loaded, so it is routinely longer than
+   * `accounts.keys` on a v0 transaction whose lookups went unresolved.
+   */
+  lamports: LamportBalance[];
+  /** Token balances for the accounts the ledger recorded as token accounts. */
+  tokenBalances: TokenBalance[];
   logs: LogStream;
   /**
    * Every "this could not be resolved" note, in the order they were discovered.

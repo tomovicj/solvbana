@@ -4,6 +4,9 @@ import { unknownDiagnosis, type Diagnosis } from './diagnosis.ts';
 import { describeTransactionError, failingInstructionIndex } from './ingest/error.ts';
 import { normalizeTransaction } from './ingest/normalize.ts';
 import type { FailedTransaction } from './ingest/types.ts';
+import { explainFailure } from './explain/explain.ts';
+import type { Explanation } from './explain/types.ts';
+import type { ResolvedIdl } from './resolve/idl.ts';
 import { refineWithResolution } from './resolve/refine.ts';
 import { resolveProgram, type ResolveOptions } from './resolve/resolve.ts';
 import { explainNotFound } from './rpc/client.ts';
@@ -25,38 +28,69 @@ export interface DiagnoseDeps {
 /**
  * Resolve the failing program, and fold what that establishes into the finding.
  *
- * Skipped entirely when the logs already named the error *and* the handler: the
- * resolution costs RPC calls, and an answer the program printed about itself is
- * not improved by an IDL that may be a deployment behind. Resolution is for the
- * codes the logs left as numbers.
+ * Runs whenever an account source is available, not only when the logs left a
+ * code undecoded. Phase 2 could skip it for an already-named error because the
+ * only thing it produced was a name; the explanation layer reads the IDL for
+ * account names, argument types and declared PDA seeds, all of which are worth
+ * having even when the error named itself. The cost is three prefix reads,
+ * cached per program and deployment, with the expensive verified-build path
+ * still opt-in.
+ *
+ * Strictly additive, as before: an error the program printed about itself is
+ * never re-decided by an IDL that may be a deployment behind.
  */
 async function withResolution(
   analysis: Analysis,
   transaction: FailedTransaction,
   deps: DiagnoseDeps,
-): Promise<Analysis> {
+): Promise<{ analysis: Analysis; idl: ResolvedIdl | null }> {
   const { accounts } = deps;
   const programId = analysis.finding.program;
 
-  if (accounts === undefined || programId === null) return analysis;
-  if (analysis.finding.error.naming !== 'none' && analysis.finding.handler !== null) {
-    return analysis;
-  }
+  if (accounts === undefined || programId === null) return { analysis, idl: null };
 
   try {
     const resolved = await resolveProgram(programId, transaction.slot, { accounts }, deps.resolve);
-    return refineWithResolution(analysis, transaction, resolved);
+    return { analysis: refineWithResolution(analysis, transaction, resolved), idl: resolved.idl };
   } catch (error) {
     // Resolution is an enrichment. A failure here must not lose the log-derived
     // answer that was already established without it.
     return {
-      ...analysis,
-      reasons: [
-        ...analysis.reasons,
-        `Source resolution failed and was skipped: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      ],
+      analysis: {
+        ...analysis,
+        reasons: [
+          ...analysis.reasons,
+          `Source resolution failed and was skipped: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        ],
+      },
+      idl: null,
+    };
+  }
+}
+
+/**
+ * Build the explanation, or degrade to none.
+ *
+ * Held to the same contract as resolution: it is an enrichment, and a failure
+ * here appends a reason rather than losing the diagnosis that was already
+ * established. It cannot change confidence or candidates by construction, since
+ * it returns neither.
+ */
+async function withExplanation(
+  transaction: FailedTransaction,
+  analysis: Analysis,
+  idl: ResolvedIdl | null,
+): Promise<{ explanation: Explanation | undefined; reason: string | null }> {
+  try {
+    return { explanation: await explainFailure(transaction, analysis.finding, idl), reason: null };
+  } catch (error) {
+    return {
+      explanation: undefined,
+      reason: `The explanation could not be built and was skipped: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
     };
   }
 }
@@ -132,7 +166,8 @@ export async function diagnose(signature: string, deps: DiagnoseDeps): Promise<D
   }
 
   const transaction = normalizeTransaction(outcome.raw, signature);
-  const analysis = await withResolution(analyze(transaction), transaction, deps);
+  const { analysis, idl } = await withResolution(analyze(transaction), transaction, deps);
+  const { explanation, reason } = await withExplanation(transaction, analysis, idl);
 
   return {
     signature,
@@ -141,6 +176,7 @@ export async function diagnose(signature: string, deps: DiagnoseDeps): Promise<D
     candidates: analysis.candidates,
     reasons: [
       ...analysis.reasons,
+      ...(reason === null ? [] : [reason]),
       ...(outcome.endpoint === 'archive'
         ? ['Retrieved from the archive endpoint; the primary endpoint no longer retains it.']
         : []),
@@ -148,5 +184,6 @@ export async function diagnose(signature: string, deps: DiagnoseDeps): Promise<D
     ],
     transaction,
     finding: analysis.finding,
+    ...(explanation === undefined ? {} : { explanation }),
   };
 }

@@ -12,10 +12,38 @@ export interface VerifiedBuild {
   lastVerifiedAt: string | null;
 }
 
+/**
+ * A registry entry whose rebuild produced exactly the deployed bytes, but which
+ * the registry itself does not currently vouch for.
+ *
+ * Reported rather than trusted. `status-all` does not say *why* `is_verified` is
+ * false, and the two possibilities are not equivalent: the entry may simply be
+ * stale, its recorded `on_chain_hash` predating the current deployment, or it may
+ * have been withdrawn for a reason the API does not expose. Promoting it would
+ * risk naming a commit the registry deliberately stopped standing behind, which
+ * is the "looks right, describes different code" failure this project is built
+ * around avoiding. Naming it here lets the reader see the commit and see exactly
+ * why it did not qualify.
+ */
+export interface BuildCandidate {
+  repoUrl: string;
+  commit: string;
+  /** The hash this tool computed, which this entry's rebuild also produced. */
+  hash: string;
+  /** The registry's own recorded on-chain hash — why its verified flag disagrees. */
+  registryOnChainHash: string | null;
+  lastVerifiedAt: string | null;
+}
+
 export type VerificationOutcome =
   | { kind: 'verified'; build: VerifiedBuild }
-  /** The registry has no entry this tool is willing to trust, and says which of the two reasons. */
-  | { kind: 'unverified'; reason: string }
+  /**
+   * No entry this tool is willing to trust, with the reason.
+   *
+   * `candidate` is set when some entry's rebuild does hash to the deployed
+   * bytes even though the registry does not mark it verified.
+   */
+  | { kind: 'unverified'; reason: string; candidate: BuildCandidate | null }
   /** The deployment is not the one that ran, so the registry's claims are about other bytes. */
   | { kind: 'not-applicable'; reason: string }
   | { kind: 'unavailable'; reason: string };
@@ -66,6 +94,11 @@ function asString(value: unknown): string | null {
  * Two conditions, both necessary. `is_verified` is the registry's own judgement.
  * `executable_hash === on_chain_hash` is the substance behind it: the commit was
  * rebuilt and produced exactly the bytes that are deployed.
+ *
+ * Both are the registry's view of chain state, refreshed on its own schedule,
+ * and this tool reads the chain more accurately than that. The gate is kept
+ * anyway: an entry failing it is not necessarily merely stale, and the API does
+ * not distinguish the cases. {@link BuildCandidate} carries the near miss instead.
  */
 export function selectTrustworthyEntry(entries: readonly RegistryEntry[]): RegistryEntry | null {
   for (const entry of entries) {
@@ -155,19 +188,19 @@ export async function resolveVerifiedBuild(
   if (!Array.isArray(entries)) return { kind: 'unavailable', reason: entries.error };
 
   const entry = selectTrustworthyEntry(entries);
-  if (entry === null) {
+
+  if (entry === null && entries.length === 0) {
     return {
       kind: 'unverified',
+      candidate: null,
       reason:
-        entries.length === 0
-          ? `${programId} has no entry in the verified-build registry, so no source repository ` +
-            'is known for it. Line numbers are out of reach for this program.'
-          : `${programId} has registry entries, but none is both marked verified and reports a ` +
-            'rebuilt hash equal to what is deployed. The published source does not build to the ' +
-            'running binary.',
+        `${programId} has no entry in the verified-build registry, so no source repository is ` +
+        'known for it. Line numbers are out of reach for this program.',
     };
   }
 
+  // The bytes are needed either way now: to confirm a trusted entry, or to see
+  // whether a rejected one nonetheless rebuilds to what is deployed.
   const account = await source.fetchAccount(deployment.programData);
   if (account === null) {
     return {
@@ -177,15 +210,54 @@ export async function resolveVerifiedBuild(
   }
 
   const computed = programHash(Uint8Array.from(Buffer.from(account.data, 'base64')));
-  const claimed = asString(entry.on_chain_hash);
 
-  if (computed !== claimed) {
+  if (entry === null) {
+    const near = entries.find(
+      (candidate) =>
+        asString(candidate.executable_hash) === computed &&
+        asString(candidate.repo_url) !== null &&
+        asString(candidate.commit) !== null,
+    );
+
     return {
       kind: 'unverified',
+      candidate:
+        near === undefined
+          ? null
+          : {
+              repoUrl: asString(near.repo_url) ?? '',
+              commit: asString(near.commit) ?? '',
+              hash: computed,
+              registryOnChainHash: asString(near.on_chain_hash),
+              lastVerifiedAt: asString(near.last_verified_at),
+            },
       reason:
-        `The registry reports an on-chain hash of ${String(claimed)} for ${programId}, but the ` +
-        `deployed ProgramData account hashes to ${computed}. The entry describes a different ` +
-        'binary, so its repository and commit are not used.',
+        near === undefined
+          ? `${programId} has registry entries, but none is marked verified and none rebuilds to ` +
+            `the deployed binary (${computed}). The published source does not build to what is ` +
+            'running.'
+          : `${programId} has a registry entry for ${asString(near.repo_url) ?? ''} at commit ` +
+            `${asString(near.commit) ?? ''} whose rebuild hashes to ${computed}, which is exactly ` +
+            'the binary that ran. The registry does not currently mark it verified — its own ' +
+            `recorded on-chain hash is ${String(asString(near.on_chain_hash))} — so it is ` +
+            'reported rather than trusted, and nothing is derived from that source.',
+    };
+  }
+
+  // Compared against `executable_hash`, not `on_chain_hash`: the former is the
+  // claim that carries meaning, that this repository at this commit rebuilds to
+  // these bytes. The latter is the registry re-reading a chain this tool has
+  // already read, slot-accurately.
+  const rebuilt = asString(entry.executable_hash);
+
+  if (computed !== rebuilt) {
+    return {
+      kind: 'unverified',
+      candidate: null,
+      reason:
+        `The registry reports that ${programId} rebuilds to ${String(rebuilt)}, but the deployed ` +
+        `ProgramData account hashes to ${computed}. The entry describes a different binary, so ` +
+        'its repository and commit are not used.',
     };
   }
 

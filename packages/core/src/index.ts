@@ -100,13 +100,47 @@ export {
   idlAddressFor,
   parseIdlDocument,
   resolveIdl,
+  type IdlAccountSpec,
+  type IdlArg,
   type IdlErrorEntry,
   type IdlHandler,
   type IdlOutcome,
+  type IdlSeed,
   type ResolvedIdl,
 } from './resolve/idl.ts';
 
 export { refineWithResolution } from './resolve/refine.ts';
+
+export { explainFailure, failingInstructionNode } from './explain/explain.ts';
+export { accountTable, nameableCount } from './explain/accounts.ts';
+export { decodeArgs, describeType } from './explain/args.ts';
+export { computeBreakdown } from './explain/compute.ts';
+export { balanceDeltas } from './explain/deltas.ts';
+export {
+  ASSOCIATED_TOKEN_PROGRAM,
+  TOKEN_2022_PROGRAM,
+  TOKEN_PROGRAM,
+  associatedTokenAddress,
+  checkAssociatedToken,
+  checkIdlPdas,
+} from './explain/derive.ts';
+export { buildGuidance } from './explain/guidance.ts';
+export type {
+  AccountRow,
+  BalanceDeltas,
+  ComputeBreakdown,
+  ComputeFrame,
+  DecodedArg,
+  DerivationCheck,
+  DerivationSource,
+  DerivationStatus,
+  Explanation,
+  Guidance,
+  LamportDelta,
+  ResolvedSeed,
+  TokenDelta,
+  TokenSummary,
+} from './explain/types.ts';
 
 export {
   clearResolutionCache,
@@ -123,6 +157,7 @@ export {
   resolveVerifiedBuild,
   selectTrustworthyEntry,
   DEFAULT_VERIFY_REGISTRY_URL,
+  type BuildCandidate,
   type VerificationOutcome,
   type VerifiedBuild,
   type VerifyOptions,
@@ -164,10 +199,12 @@ export type {
   FailedTransaction,
   InstructionError,
   InstructionNode,
+  LamportBalance,
   LogEvent,
   LogLine,
   LogStream,
   RawTransaction,
+  TokenBalance,
   TransactionError,
 } from './ingest/types.ts';
 

@@ -1,5 +1,6 @@
 import type { Finding } from './analyze/types.ts';
 import type { Confidence } from './confidence.ts';
+import type { Explanation } from './explain/types.ts';
 import type { FailedTransaction } from './ingest/types.ts';
 
 /** A position in a program's source tree. */
@@ -62,6 +63,15 @@ export interface Diagnosis {
    * be a parser for a format nobody specified.
    */
   finding?: Finding;
+  /**
+   * What the transaction record and the program's IDL show about the failure.
+   *
+   * Absent when there was no transaction, or when building it failed — in which
+   * case `reasons` says so. Carries no confidence and no locations by design:
+   * this tier explains what the earlier ones established and locates nothing
+   * new, so it cannot promote a diagnosis.
+   */
+  explanation?: Explanation;
 }
 
 /**

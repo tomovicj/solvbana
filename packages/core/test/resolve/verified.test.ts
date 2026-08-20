@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { programHash, resolveVerifiedBuild, selectTrustworthyEntry } from '@solvbana/core';
+import {
+  programHash,
+  resolveVerifiedBuild,
+  selectTrustworthyEntry,
+  type AccountSource,
+  type Deployment,
+} from '@solvbana/core';
 import { programSnapshot, snapshotAccounts } from '../fixtures.ts';
 
 const WHIRLPOOL = 'whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc';
@@ -137,6 +143,55 @@ describe('resolveVerifiedBuild', () => {
     expect(outcome.kind === 'unverified' && outcome.reason).toMatch(/different binary/);
   });
 
+  it('reports an entry that rebuilds to the deployed binary but is not marked verified', async () => {
+    // The registry refreshes its own on-chain hash on its own schedule, so an
+    // entry can rebuild to exactly the bytes that ran and still read unverified.
+    // The commit is worth showing — it is right there — but not worth trusting:
+    // status-all does not say whether the flag is false because the entry is
+    // stale or because it was withdrawn.
+    const { source, deployment, hash } = syntheticDeployment();
+    stubRegistry([
+      {
+        is_verified: false,
+        on_chain_hash: 'a-hash-from-some-later-deployment',
+        executable_hash: hash,
+        repo_url: 'https://github.com/org/repo',
+        commit: 'e5f089bc5c49b01f5c8abb43c78457ab6c440568',
+      },
+    ]);
+
+    const outcome = await resolveVerifiedBuild(WHIRLPOOL, deployment, source, {
+      registryUrl: 'https://registry.example',
+    });
+
+    expect(outcome.kind).toBe('unverified');
+    expect(outcome.kind === 'unverified' && outcome.candidate).toMatchObject({
+      commit: 'e5f089bc5c49b01f5c8abb43c78457ab6c440568',
+      hash,
+      registryOnChainHash: 'a-hash-from-some-later-deployment',
+    });
+    expect(outcome.kind === 'unverified' && outcome.reason).toMatch(/reported rather than trusted/);
+  });
+
+  it('carries no candidate when no entry rebuilds to the deployed binary', async () => {
+    const { source, deployment } = syntheticDeployment();
+    stubRegistry([
+      {
+        is_verified: false,
+        on_chain_hash: 'something-else',
+        executable_hash: 'a-rebuild-of-different-source',
+        repo_url: 'https://github.com/org/repo',
+        commit: 'abc123',
+      },
+    ]);
+
+    const outcome = await resolveVerifiedBuild(WHIRLPOOL, deployment, source, {
+      registryUrl: 'https://registry.example',
+    });
+
+    expect(outcome).toMatchObject({ kind: 'unverified', candidate: null });
+  });
+
   it('reports an unreachable registry as unavailable, not as unverified', async () => {
     // "We could not check" and "we checked and it is not verified" are different
     // facts, and only one of them is about the program.
@@ -168,3 +223,48 @@ describe('the recorded executable hash', () => {
     expect(programSnapshot(WHIRLPOOL).executableHash).toBe(WHIRLPOOL_HASH);
   });
 });
+
+/**
+ * A deployment whose ProgramData bytes are known, so the hash under test is one
+ * the test computed rather than one it hard-codes.
+ *
+ * The recorded corpus snapshots deliberately keep only the 45-byte header — the
+ * body is 10MB of mostly zero padding — so the hashing path is covered
+ * synthetically instead.
+ */
+function syntheticDeployment(): {
+  source: AccountSource;
+  deployment: Extract<Deployment, { kind: 'live' }>;
+  hash: string;
+} {
+  const address = 'CtXfPzz36dH5Ws4UYKZvrQ1Xqzn42ecDW6y8NKuiN8nD';
+  const bytes = programData([1, 2, 3, 4, 5], 2048);
+  const source: AccountSource = {
+    fetchAccount: (requested) =>
+      Promise.resolve(
+        requested === address
+          ? {
+              address,
+              owner: 'BPFLoaderUpgradeab1e11111111111111111111111',
+              executable: false,
+              data: Buffer.from(bytes).toString('base64'),
+              size: bytes.length,
+              readAtSlot: 1n,
+            }
+          : null,
+      ),
+    fetchAccountPrefix: () => Promise.resolve(null),
+  };
+
+  return {
+    source,
+    deployment: {
+      kind: 'live',
+      programData: address,
+      lastDeploySlot: 1n,
+      programDataSize: bytes.length,
+      readAtSlot: 2n,
+    },
+    hash: programHash(bytes),
+  };
+}
