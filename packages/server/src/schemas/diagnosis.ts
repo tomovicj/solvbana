@@ -2,9 +2,11 @@ import { Type, type Static } from '@sinclair/typebox';
 import {
   CONFIDENCE_LEVELS,
   walkInstructions,
+  type Deployment,
   type Diagnosis,
   type FailedTransaction,
   type Finding,
+  type Resolution,
 } from '@solvbana/core';
 
 const ConfidenceSchema = Type.Union(CONFIDENCE_LEVELS.map((level) => Type.Literal(level)));
@@ -152,6 +154,8 @@ const DecodedErrorSchema = Type.Object({
     Type.Literal('logged'),
     Type.Literal('native-table'),
     Type.Literal('runtime-variant'),
+    Type.Literal('idl'),
+    Type.Literal('anchor-builtin'),
     Type.Literal('none'),
   ]),
 });
@@ -199,12 +203,66 @@ const FailureKindSchema = Type.Union([
   Type.Object({ kind: Type.Literal('undecoded') }),
 ]);
 
+/** Slot values are `bigint` in core and cross the wire as strings, as elsewhere. */
+const DeploymentSchema = Type.Union([
+  Type.Object({
+    kind: Type.Literal('live'),
+    programData: Type.String(),
+    lastDeploySlot: Type.String(),
+    programDataSize: Type.Integer(),
+    readAtSlot: Type.String(),
+  }),
+  Type.Object({ kind: Type.Literal('immutable'), loader: Type.String() }),
+  Type.Object({
+    kind: Type.Literal('upgraded-since'),
+    lastDeploySlot: Type.String(),
+    failingSlot: Type.String(),
+    programData: Type.String(),
+  }),
+  Type.Object({ kind: Type.Literal('closed'), programData: Type.String() }),
+  Type.Object({ kind: Type.Literal('unavailable'), reason: Type.String() }),
+]);
+
+const VerificationSchema = Type.Union([
+  Type.Object({
+    kind: Type.Literal('verified'),
+    build: Type.Object({
+      repoUrl: Type.String(),
+      commit: Type.String(),
+      hash: Type.String(),
+      lastVerifiedAt: NullableString,
+    }),
+  }),
+  Type.Object({ kind: Type.Literal('unverified'), reason: Type.String() }),
+  Type.Object({ kind: Type.Literal('not-applicable'), reason: Type.String() }),
+  Type.Object({ kind: Type.Literal('unavailable'), reason: Type.String() }),
+]);
+
+const ResolutionSchema = Type.Object({
+  programId: Type.String(),
+  deployment: DeploymentSchema,
+  idl: Type.Union([
+    Type.Object({
+      address: Type.String(),
+      programName: Type.String(),
+      spec: NullableString,
+      declaredErrors: Type.Integer(),
+      handlers: Type.Integer(),
+    }),
+    Type.Null(),
+  ]),
+  verification: Type.Union([VerificationSchema, Type.Null()]),
+  notes: Type.Array(Type.String()),
+});
+
 const FindingSchema = Type.Object({
   program: NullableString,
   handler: NullableString,
+  handlerSource: Type.Union([Type.Literal('logged'), Type.Literal('discriminator'), Type.Null()]),
   error: DecodedErrorSchema,
   failure: FailureKindSchema,
   explanation: Type.String(),
+  resolution: Type.Optional(ResolutionSchema),
 });
 
 export const DiagnosisSchema = Type.Object({
@@ -261,6 +319,29 @@ export const FAILURE_KIND_SCHEMA_COVERS_CORE: Finding['failure']['kind'] extends
   ? true
   : never = true;
 
+/**
+ * The error-naming provenance is the field a consumer uses to decide how much an
+ * error name is worth, so a value missing from the schema would be serialized
+ * away and read as `none` — a stronger claim silently downgraded, or an
+ * unrecognized one passed through. Checked as its own guard because it grows
+ * every time a new way of naming an error is added.
+ */
+export const ERROR_NAMING_SCHEMA_COVERS_CORE: Finding['error']['naming'] extends FindingWire['error']['naming']
+  ? true
+  : never = true;
+
+export const RESOLUTION_SCHEMA_COVERS_CORE: keyof Resolution extends keyof NonNullable<
+  FindingWire['resolution']
+>
+  ? true
+  : never = true;
+
+export const DEPLOYMENT_SCHEMA_COVERS_CORE: Deployment['kind'] extends NonNullable<
+  FindingWire['resolution']
+>['deployment']['kind']
+  ? true
+  : never = true;
+
 function toTransactionWire(transaction: FailedTransaction): FailedTransactionWire {
   return {
     signature: transaction.signature,
@@ -297,6 +378,59 @@ export function toDiagnosisWire(diagnosis: Diagnosis): DiagnosisWire {
     ...(diagnosis.transaction === undefined
       ? {}
       : { transaction: toTransactionWire(diagnosis.transaction) }),
-    ...(diagnosis.finding === undefined ? {} : { finding: diagnosis.finding }),
+    ...(diagnosis.finding === undefined ? {} : { finding: toFindingWire(diagnosis.finding) }),
+  };
+}
+
+type ResolutionWire = NonNullable<FindingWire['resolution']>;
+
+/** Deployment slots are `bigint` in core; JSON has none, so they cross as strings. */
+function toDeploymentWire(deployment: Deployment): ResolutionWire['deployment'] {
+  switch (deployment.kind) {
+    case 'live':
+      return {
+        kind: 'live',
+        programData: deployment.programData,
+        lastDeploySlot: String(deployment.lastDeploySlot),
+        programDataSize: deployment.programDataSize,
+        readAtSlot: String(deployment.readAtSlot),
+      };
+    case 'immutable':
+      return { kind: 'immutable', loader: deployment.loader };
+    case 'upgraded-since':
+      return {
+        kind: 'upgraded-since',
+        lastDeploySlot: String(deployment.lastDeploySlot),
+        failingSlot: String(deployment.failingSlot),
+        programData: deployment.programData,
+      };
+    case 'closed':
+      return { kind: 'closed', programData: deployment.programData };
+    case 'unavailable':
+      return { kind: 'unavailable', reason: deployment.reason };
+  }
+}
+
+function toResolutionWire(resolution: Resolution): ResolutionWire {
+  return {
+    programId: resolution.programId,
+    deployment: toDeploymentWire(resolution.deployment),
+    idl: resolution.idl,
+    verification: resolution.verification,
+    notes: resolution.notes,
+  };
+}
+
+function toFindingWire(finding: Finding): FindingWire {
+  return {
+    program: finding.program,
+    handler: finding.handler,
+    handlerSource: finding.handlerSource,
+    error: finding.error,
+    failure: finding.failure,
+    explanation: finding.explanation,
+    ...(finding.resolution === undefined
+      ? {}
+      : { resolution: toResolutionWire(finding.resolution) }),
   };
 }

@@ -70,8 +70,63 @@ export type {
   ErrorNaming,
   FailureKind,
   Finding,
+  HandlerSource,
   PanicClass,
 } from './analyze/types.ts';
+
+export {
+  anchorBuiltinFor,
+  anchorCodeFamily,
+  isAnchorReservedCode,
+  type AnchorBuiltin,
+  type AnchorCodeFamily,
+} from './resolve/anchor-codes.ts';
+
+export {
+  describeDeployment,
+  isSlotAccurate,
+  lastDeploySlotOf,
+  programDataAddressOf,
+  resolveDeployment,
+  BPF_LOADER_UPGRADEABLE,
+  PROGRAM_DATA_HEADER_SIZE,
+  type Deployment,
+} from './resolve/deployment.ts';
+
+export {
+  decodeIdlAccount,
+  deriveDiscriminator,
+  handlerForDiscriminator,
+  idlAddressFor,
+  parseIdlDocument,
+  resolveIdl,
+  type IdlErrorEntry,
+  type IdlHandler,
+  type IdlOutcome,
+  type ResolvedIdl,
+} from './resolve/idl.ts';
+
+export { refineWithResolution } from './resolve/refine.ts';
+
+export {
+  clearResolutionCache,
+  resolveProgram,
+  type ResolveDeps,
+  type ResolveOptions,
+  type ResolutionResult,
+} from './resolve/resolve.ts';
+
+export type { IdlSummary, Resolution } from './resolve/types.ts';
+
+export {
+  programHash,
+  resolveVerifiedBuild,
+  selectTrustworthyEntry,
+  DEFAULT_VERIFY_REGISTRY_URL,
+  type VerificationOutcome,
+  type VerifiedBuild,
+  type VerifyOptions,
+} from './resolve/verified.ts';
 
 export {
   accountKeysFrom,
@@ -105,7 +160,7 @@ export { reviveRawTransaction } from './ingest/raw.ts';
 export type {
   AccountKey,
   AccountKeys,
-  AccountSource,
+  AccountOrigin,
   FailedTransaction,
   InstructionError,
   InstructionNode,
@@ -117,9 +172,17 @@ export type {
 } from './ingest/types.ts';
 
 export {
+  createAccountSource,
   createTransactionSource,
   explainNotFound,
   type TransactionSourceConfig,
 } from './rpc/client.ts';
 
-export type { Endpoint, FetchOutcome, NotFoundReason, TransactionSource } from './rpc/source.ts';
+export type {
+  AccountSnapshot,
+  AccountSource,
+  Endpoint,
+  FetchOutcome,
+  NotFoundReason,
+  TransactionSource,
+} from './rpc/source.ts';

@@ -45,3 +45,42 @@ export type FetchOutcome =
 export interface TransactionSource {
   fetchTransaction(signature: string): Promise<FetchOutcome>;
 }
+
+/**
+ * One account read, with the slot it was served at.
+ *
+ * `readAtSlot` is not decoration. Source resolution turns on whether a program
+ * was upgraded between the failing transaction's slot and now, and "now" has to
+ * be a recorded number for that question to have a stable answer — otherwise a
+ * fixture that resolves today quietly reports something else next month.
+ */
+export interface AccountSnapshot {
+  address: string;
+  owner: string;
+  executable: boolean;
+  /** Base64, exactly as the RPC returned it. */
+  data: string;
+  /** Total size of the account on chain, which a prefix read does not tell you. */
+  size: number;
+  readAtSlot: bigint;
+}
+
+/**
+ * The port source resolution reads accounts through.
+ *
+ * A second port beside {@link TransactionSource} rather than an extension of it:
+ * the two have different lifetimes in a diagnosis (one transaction, many
+ * programs) and different cacheability, and keeping them apart lets a test
+ * supply recorded accounts without also having to supply a transaction.
+ */
+export interface AccountSource {
+  fetchAccount(address: string): Promise<AccountSnapshot | null>;
+  /**
+   * Read only the first `length` bytes.
+   *
+   * Worth having as its own method: a ProgramData account is padded to megabytes
+   * of zeros, and the deployment slot this layer needs lives in the first 45
+   * bytes of it.
+   */
+  fetchAccountPrefix(address: string, length: number): Promise<AccountSnapshot | null>;
+}

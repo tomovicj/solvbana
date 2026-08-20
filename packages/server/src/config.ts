@@ -24,6 +24,12 @@ const ConfigSchema = Type.Object({
   SOLANA_RPC_URL: Type.String({ minLength: 1 }),
   /** Optional archive endpoint for signatures older than the primary node's retention. */
   SOLANA_ARCHIVE_RPC_URL: Type.Optional(Type.String({ minLength: 1 })),
+  /**
+   * Verified-build registry, used to map a deployed binary's hash to a repository
+   * and commit. Set to an empty string to disable the lookup — the diagnosis then
+   * says so rather than quietly omitting source provenance.
+   */
+  SOLVBANA_VERIFY_REGISTRY_URL: Type.String({ default: 'https://verify.osec.io' }),
 });
 
 export type AppConfig = Static<typeof ConfigSchema>;
@@ -76,6 +82,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ConfigResult {
   }
   if (config.SOLANA_ARCHIVE_RPC_URL !== undefined && !isHttpUrl(config.SOLANA_ARCHIVE_RPC_URL)) {
     urlErrors.push('SOLANA_ARCHIVE_RPC_URL: must be an http(s) URL');
+  }
+  // Empty is the documented way to turn the registry off, so it is not a bad URL.
+  if (
+    config.SOLVBANA_VERIFY_REGISTRY_URL !== '' &&
+    !isHttpUrl(config.SOLVBANA_VERIFY_REGISTRY_URL)
+  ) {
+    urlErrors.push('SOLVBANA_VERIFY_REGISTRY_URL: must be an http(s) URL, or empty to disable');
   }
   if (urlErrors.length > 0) return { ok: false, errors: urlErrors };
 

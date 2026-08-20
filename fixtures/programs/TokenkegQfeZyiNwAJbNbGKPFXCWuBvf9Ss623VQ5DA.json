@@ -1,0 +1,20 @@
+{
+  "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  "readAtSlot": 439652035,
+  "program": {
+    "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+    "executable": true,
+    "data": "AgAAACfxkLHTr5i4znFMROjK3/n4/EXLjl+sQgLv+BENl903",
+    "size": 36
+  },
+  "programDataHeader": {
+    "address": "3gvYRKWyXRR9xKWe1ZjPhLY5ZJRN7KDB4rFZFGoJfFk2",
+    "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+    "executable": false,
+    "data": "AwAAAICiABkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "size": 108645
+  },
+  "idl": null,
+  "executableHash": "435df1e70f1ca6258eb01a4507701688c7f1a22656e3e4ef361db473bf478075",
+  "trimmedElfLength": 108585
+}

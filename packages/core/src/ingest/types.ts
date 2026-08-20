@@ -10,14 +10,20 @@ import type { GetTransactionApiResponseJson } from '@solana/kit';
  */
 export type RawTransaction = GetTransactionApiResponseJson<0>;
 
-/** Where an account address came from in the flattened key list. */
-export type AccountSource = 'static' | 'lookup-writable' | 'lookup-readonly';
+/**
+ * Where an account address came from in the flattened key list.
+ *
+ * Named `AccountOrigin` rather than `AccountSource` because the `*Source` suffix
+ * belongs to the I/O ports (`TransactionSource`, `AccountSource`), and this is a
+ * property of an address rather than something to read from.
+ */
+export type AccountOrigin = 'static' | 'lookup-writable' | 'lookup-readonly';
 
 export interface AccountKey {
   /** Index into the flattened list — the index instructions actually reference. */
   index: number;
   address: string;
-  source: AccountSource;
+  source: AccountOrigin;
   signer: boolean;
   writable: boolean;
 }

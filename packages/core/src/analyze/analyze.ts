@@ -7,7 +7,14 @@ import { explainAnchor } from './explain.ts';
 import { attributedFrame, buildFrames, type Frame } from './frames.ts';
 import { explainRuntimeVariant, isNativeProgram, nativeError } from './native.ts';
 import { explainPanic, panicIn } from './panic.ts';
-import type { DecodedError, Finding } from './types.ts';
+import type { DecodedError, Finding, HandlerSource } from './types.ts';
+
+/** The frame-derived fields every branch of the cascade shares. */
+interface FindingBase {
+  program: string | null;
+  handler: string | null;
+  handlerSource: HandlerSource | null;
+}
 
 export interface Analysis {
   finding: Finding;
@@ -60,7 +67,7 @@ export function analyze(transaction: FailedTransaction): Analysis {
   const handler = frame === null ? null : handlerIn(frame);
   const code = customCode(instructionError(transaction));
 
-  const base = { program, handler };
+  const base = { program, handler, handlerSource: handler === null ? null : ('logged' as const) };
 
   // Absent logs leave no frames, so the log detectors below are skipped rather
   // than special-cased. What `meta.err` names on its own is still reported: the
@@ -180,7 +187,7 @@ function runtimeNaming(transaction: FailedTransaction): (DecodedError & { name: 
 }
 
 function fromAnchor(
-  base: { program: string | null; handler: string | null },
+  base: FindingBase,
   frame: Frame,
   anchor: AnchorError,
   code: number | null,
@@ -251,7 +258,7 @@ function fromAnchor(
 }
 
 function blank(
-  base: { program: string | null; handler: string | null },
+  base: FindingBase,
   code: number | null,
   reason: string,
   extra: string[] = [],

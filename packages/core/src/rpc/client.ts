@@ -1,6 +1,18 @@
-import { createSolanaRpc, signature as toSignature, type Signature } from '@solana/kit';
+import {
+  address as toAddress,
+  createSolanaRpc,
+  signature as toSignature,
+  type Signature,
+} from '@solana/kit';
 import type { RawTransaction } from '../ingest/types.ts';
-import type { Endpoint, FetchOutcome, NotFoundReason, TransactionSource } from './source.ts';
+import type {
+  AccountSnapshot,
+  AccountSource,
+  Endpoint,
+  FetchOutcome,
+  NotFoundReason,
+  TransactionSource,
+} from './source.ts';
 
 export interface TransactionSourceConfig {
   rpcUrl: string;
@@ -142,6 +154,49 @@ export function createTransactionSource(config: TransactionSourceConfig): Transa
         searchedArchive: archive !== null,
       };
     },
+  };
+}
+
+/**
+ * Build an account source over one endpoint.
+ *
+ * Accounts are read from the primary only. There is no archive fallback and there
+ * should not be one: every read here is about *current* state — which binary is
+ * deployed now, which IDL is published now — and an archive endpoint would answer
+ * the same question no differently. Historical account data is a Phase 5 problem
+ * that no `getAccountInfo` call can solve.
+ */
+export function createAccountSource(config: TransactionSourceConfig): AccountSource {
+  const rpc = createSolanaRpc(config.rpcUrl);
+
+  async function read(
+    address: string,
+    dataSlice: { offset: number; length: number } | undefined,
+  ): Promise<AccountSnapshot | null> {
+    const response = await rpc
+      .getAccountInfo(toAddress(address), {
+        encoding: 'base64',
+        ...(dataSlice === undefined ? {} : { dataSlice }),
+      })
+      .send();
+
+    if (response.value === null) return null;
+
+    return {
+      address,
+      owner: response.value.owner,
+      executable: response.value.executable,
+      data: response.value.data[0],
+      // `space` is the account's real size even on a sliced read, which is the
+      // only way a prefix read can report how much it did not fetch.
+      size: Number(response.value.space),
+      readAtSlot: response.context.slot,
+    };
+  }
+
+  return {
+    fetchAccount: (address) => read(address, undefined),
+    fetchAccountPrefix: (address, length) => read(address, { offset: 0, length }),
   };
 }
 

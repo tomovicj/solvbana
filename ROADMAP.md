@@ -54,19 +54,26 @@ Two rules were settled here and bind every later phase:
 
 Connecting an on-chain program to the code that produced it. Correctness-critical.
 
-- [ ] IDL resolution: `anchor idl fetch` for on-chain IDLs; parse `errors[]` into code → name + `#[msg]` message
+- [x] IDL resolution from the Anchor-derived address; parse `errors[]` into code → name + `#[msg]` message. Both layouts: pre-0.30 (camelCase, no discriminators) and 0.30+ (`spec`, snake_case, explicit discriminators) — roughly half the corpus each
+- [x] Handler names by matching instruction discriminators against the IDL, for programs that log no Anchor prologue
+- [x] **An IDL published at the Anchor-derived address unlocks Anchor's built-in error table.** This is the evidence Phase 1 refuses to assume: only an Anchor program publishes there, so the reserved ranges demonstrably apply and `Custom(2012)` becomes `ConstraintAddress`. Without an IDL the refusal stands
+- [x] **Slot-accurate binary resolution** — the correctness trap:
+  - [x] Locate the ProgramData account for the program ID
+  - [x] Read `last_deploy_slot` from its header. This is a single 45-byte read and it answers the question outright — no `Upgrade` enumeration and no bisection, both of which were in the original plan and are unnecessary
+  - [x] Non-upgradeable loaders (`BPFLoader2`, `NativeLoader`) resolve as immutable for free: their bytes cannot have changed
+  - [x] **Never** fall back to the current deployment silently. When the program was redeployed after the transaction, the bytes that ran are gone — `getAccountInfo` serves current state only — so the answer is a refusal, not a fallback
+- [x] Verified build lookup: OtterSec registry — program hash → repo + commit. `status-all` returns conflicting entries, so an entry is only trusted when it is `is_verified` **and** its `executable_hash` equals its `on_chain_hash`
+- [x] Hash the resolved on-chain binary and confirm it matches the registry entry: `sha256(programData[45..])` with trailing zeros trimmed. The registry's own `on_chain_hash` is recomputed rather than believed
+- [x] The registry lookup is gated on the deployment check — an entry describes what is deployed *now*, so on a stale deployment it is a true statement about the wrong bytes
+- [x] Explicit unverified-program mode: error names and messages from IDL, no line numbers, confidence capped at `variant-only`
 - [ ] Local IDL upload path for programs without a published IDL
-- [ ] **Slot-accurate binary resolution** — the correctness trap:
-  - [ ] Locate the ProgramData account for the program ID
-  - [ ] Enumerate `Upgrade` instructions via `getSignaturesForAddress`
-  - [ ] Bisect by slot to find the deployment live at the failing slot
-  - [ ] **Never** fall back to the current deployment silently — if the historical binary can't be resolved, degrade confidence and say so
-- [ ] Verified build lookup: OtterSec registry / `solana-verify` — program hash → repo + commit
-- [ ] Hash the resolved on-chain binary and confirm it matches the registry entry before trusting any source mapping
-- [ ] Source fetch and cache by commit SHA
-- [ ] Explicit unverified-program mode: error names and messages from IDL, no line numbers, confidence capped at `variant-only`
+- [ ] Source fetch and cache by commit SHA — deferred to Phase 3, which is what consumes the tree
 
 **Done when:** for a verified program, the tool can produce the exact source tree that was running at the failing slot — and refuses to guess when it can't.
+
+The corpus reaches **7 `exact` / 32 `variant-only` / 6 `unknown`** with resolution applied. Only two fixtures moved, and that is the honest ceiling: the remaining six undecoded programs publish no on-chain IDL, or have had their ProgramData closed. The phase's output is the resolution layer Phase 3 depends on, not the confidence delta.
+
+Note the corpus systematically under-represents the degrade paths. Harvested fixtures are always recent, so every real program in it still runs the binary that ran; `upgraded-since` exists only as a synthetic fixture, and must stay one.
 
 ---
 
@@ -74,7 +81,8 @@ Connecting an on-chain program to the code that produced it. Correctness-critica
 
 Turning an error variant into a small set of candidate throw sites.
 
-- [ ] Parse instruction data: first 8 bytes → discriminator → handler name (via IDL). Anchor programs already log their handler name, and Phase 1 reads it — this is for the programs that do not, and to name handlers in frames that never logged a prologue
+- [x] Parse instruction data: first 8 bytes → discriminator → handler name (via IDL). Done in Phase 2 — Anchor programs log their handler name and Phase 1 reads it, and the discriminator covers the ones that do not
+- [ ] Fetch and cache the source tree at the verified commit Phase 2 resolved
 - [ ] Static analysis pass over the resolved source: index every `require!`, `require_eq!`, `require_keys_eq!`, `err!`, `return Err(...)` with file, line, and the error variant it raises
 - [ ] Call graph from handler entry points; reachability filter to drop throw sites the failing handler can't reach
 - [ ] **CPI progress bounding:** compare observed inner instructions against CPI call sites in the handler — failure is bounded between the last completed CPI and the next one

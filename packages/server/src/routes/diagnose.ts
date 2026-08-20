@@ -1,9 +1,20 @@
-import { diagnose, parseSignature, type TransactionSource } from '@solvbana/core';
+import {
+  diagnose,
+  parseSignature,
+  type AccountSource,
+  type ResolveOptions,
+  type TransactionSource,
+} from '@solvbana/core';
 import type { App } from '../app.ts';
 import { DiagnoseBody, DiagnosisSchema, toDiagnosisWire } from '../schemas/diagnosis.ts';
 import { ErrorResponse, errorBody } from '../schemas/error.ts';
 
-export function registerDiagnoseRoutes(app: App, source: TransactionSource): void {
+export function registerDiagnoseRoutes(
+  app: App,
+  source: TransactionSource,
+  accounts: AccountSource | undefined,
+  resolve: ResolveOptions,
+): void {
   app.post(
     '/diagnose',
     {
@@ -24,7 +35,7 @@ export function registerDiagnoseRoutes(app: App, source: TransactionSource): voi
 
       // Always returns a diagnosis, never throws for an undiagnosable input —
       // an opaque failure is reported as `unknown`, not as a server error.
-      const diagnosis = await diagnose(parsed.signature, { source });
+      const diagnosis = await diagnose(parsed.signature, { source, accounts, resolve });
       return toDiagnosisWire(diagnosis);
     },
   );

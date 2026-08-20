@@ -2,7 +2,7 @@
 
 **Point it at a failed Solana transaction. It tells you which line of your program failed, and why.**
 
-> **Status: early development.** The architecture is settled; implementation is in progress. Phases 0 and 1 are done: a signature resolves to a typed structure naming the failing instruction, and its logs are read for everything they disclose on their own — panic locations, Anchor throw sites, error names and messages, handler names, and compute figures. Against the 45-signature test corpus that currently lands 7 `exact`, 30 `variant-only`, and 8 `unknown`. The `unknown` ones are bare error codes from programs that published no name; those need Phase 2's IDL resolution. See [ROADMAP.md](./ROADMAP.md) for what exists and what doesn't.
+> **Status: early development.** The architecture is settled; implementation is in progress. Phases 0, 1 and 2 are done: a signature resolves to a typed structure naming the failing instruction, its logs are read for everything they disclose on their own, and the failing program is resolved — proving whether the deployed binary is the one that ran, reading its IDL, and checking its hash against a verified-build registry. Against the 45-signature test corpus that currently lands 7 `exact`, 32 `variant-only`, and 6 `unknown`. Source fetching and throw-site indexing are Phase 3. See [ROADMAP.md](./ROADMAP.md) for what exists and what doesn't.
 
 ---
 
@@ -58,7 +58,7 @@ Four independent signals, applied in order of cost:
 | Tier | Signal | Cost | Gives you |
 |---|---|---|---|
 | 1 | Log parsing | Free | Anchor constraint errors already name the account, the variant, and the `#[msg]` text; panics already carry `file:line:col`; Anchor programs already log which handler ran |
-| 2 | IDL + discriminator | One RPC call | Error variant name and `#[msg]` text, and which handler ran, for programs that log neither |
+| 2 | IDL + discriminator | A few RPC calls | Error variant name and `#[msg]` text for programs that log neither; which handler ran; and the repository and commit that built the binary, proven live at the failing slot |
 | 3 | Static analysis | Source fetch | Every throw site indexed, filtered by reachability from the failing handler, bounded by observed CPIs and `msg!` breadcrumbs |
 | 4 | Replay | Archive state + rbpf | Exact program counter, DWARF-symbolized, with an intra-program call stack |
 
@@ -75,11 +75,11 @@ Every result carries an explicit confidence level:
 
 A debugger that is confidently wrong once is a debugger you stop trusting. The tool would rather return three candidates than one guess.
 
-It also declines guesses that would be easy to make. Anchor reserves error codes 2000–2999 for constraints, so a bare `Custom(2012)` looks a lot like `ConstraintAddress` — but that range is one framework's convention, and any program may return any code for any reason. Unless the program published the name itself, the tool reports the number and says why it will not name it.
+It also declines guesses that would be easy to make. Anchor reserves error codes 2000–2999 for constraints, so a bare `Custom(2012)` looks a lot like `ConstraintAddress` — but that range is one framework's convention, and any program may return any code for any reason. The tool will name it once it has fetched an IDL from the program's Anchor-derived address, because only an Anchor program publishes one there and that is real evidence. Until then it reports the number and says why it will not name it.
 
 ## Correctness guarantees
 
-**Slot-accurate binaries.** Programs get upgraded. `Solvbana` resolves the binary that was live at the failing slot by walking `Upgrade` instructions on the ProgramData account and bisecting by slot. It never falls back to the current deployment silently — if the historical binary can't be resolved, confidence drops and the report says why.
+**Slot-accurate binaries.** Programs get upgraded. `Solvbana` reads the deployment slot out of the program's ProgramData account and compares it against the failing transaction's: if the current deployment predates the failure, it provably *is* the binary that ran. If the program was redeployed since, the bytes that ran are gone — a standard RPC serves only current state — so the tool says so and resolves nothing further. It never falls back to the current deployment silently.
 
 **Verified source only.** Source *mapping* requires a verified build. The on-chain binary is hashed and checked against the registry entry before any line number is derived from it. Unverified programs get error names and messages, never mapped line numbers. A location the program printed about itself — a panic message, an Anchor throw site — is exempt, because nothing was mapped: the running program said where it was.
 

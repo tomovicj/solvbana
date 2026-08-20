@@ -1,6 +1,11 @@
 import Fastify, { type FastifyError } from 'fastify';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
-import { createTransactionSource, type TransactionSource } from '@solvbana/core';
+import {
+  createAccountSource,
+  createTransactionSource,
+  type AccountSource,
+  type TransactionSource,
+} from '@solvbana/core';
 import type { AppConfig } from './config.ts';
 import { errorBody } from './schemas/error.ts';
 import { registerHealthRoutes } from './routes/health.ts';
@@ -12,6 +17,14 @@ export interface BuildAppOptions {
    * offline and deterministically; production leaves this unset.
    */
   source?: TransactionSource;
+  /**
+   * Override the account source used for source resolution.
+   *
+   * Left unset in a test, resolution simply does not run and the diagnosis is
+   * whatever the logs alone established — which is the behaviour every test
+   * written before Phase 2 already expects.
+   */
+  accounts?: AccountSource;
 }
 
 /**
@@ -62,8 +75,17 @@ export function buildApp(config: AppConfig, options: BuildAppOptions = {}) {
       archiveRpcUrl: config.SOLANA_ARCHIVE_RPC_URL,
     });
 
+  const accounts =
+    options.accounts ??
+    (options.source === undefined
+      ? createAccountSource({ rpcUrl: config.SOLANA_RPC_URL })
+      : undefined);
+
   registerHealthRoutes(app);
-  registerDiagnoseRoutes(app, source);
+  registerDiagnoseRoutes(app, source, accounts, {
+    registryUrl: config.SOLVBANA_VERIFY_REGISTRY_URL,
+    verifySource: true,
+  });
 
   return app;
 }

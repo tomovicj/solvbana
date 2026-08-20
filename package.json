@@ -16,6 +16,7 @@
     "typecheck": "tsc --build && tsc -p packages/core/test && tsc -p packages/server/test && tsc -p scripts",
     "harvest": "node --conditions=development --env-file-if-exists=.env scripts/harvest.ts",
     "record": "node --conditions=development --env-file-if-exists=.env scripts/record.ts",
+    "snapshot": "node --conditions=development --env-file-if-exists=.env scripts/snapshot.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

@@ -10,6 +10,9 @@ export const TEST_CONFIG: AppConfig = {
   PORT: 0,
   LOG_LEVEL: 'silent',
   SOLANA_RPC_URL: 'https://api.mainnet-beta.solana.com',
+  // Empty disables verified-build lookups, which keeps the suite off the network
+  // even if a test ever supplies an account source.
+  SOLVBANA_VERIFY_REGISTRY_URL: '',
 };
 
 const FIXTURES = join(import.meta.dirname, '..', '..', '..', 'fixtures');

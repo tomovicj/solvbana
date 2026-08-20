@@ -1,0 +1,14 @@
+{
+  "programId": "ComputeBudget111111111111111111111111111111",
+  "readAtSlot": 439651999,
+  "program": {
+    "owner": "NativeLoader1111111111111111111111111111111",
+    "executable": true,
+    "data": "Y29tcHV0ZV9idWRnZXRfcHJvZ3JhbQ==",
+    "size": 22
+  },
+  "programDataHeader": null,
+  "idl": null,
+  "executableHash": null,
+  "trimmedElfLength": null
+}

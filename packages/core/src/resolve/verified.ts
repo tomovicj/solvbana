@@ -1,0 +1,201 @@
+import { createHash } from 'node:crypto';
+import type { AccountSource } from '../rpc/source.ts';
+import { PROGRAM_DATA_HEADER_SIZE, type Deployment } from './deployment.ts';
+
+export const DEFAULT_VERIFY_REGISTRY_URL = 'https://verify.osec.io';
+
+export interface VerifiedBuild {
+  repoUrl: string;
+  commit: string;
+  /** The hash both the registry and this tool computed, which had to agree to get here. */
+  hash: string;
+  lastVerifiedAt: string | null;
+}
+
+export type VerificationOutcome =
+  | { kind: 'verified'; build: VerifiedBuild }
+  /** The registry has no entry this tool is willing to trust, and says which of the two reasons. */
+  | { kind: 'unverified'; reason: string }
+  /** The deployment is not the one that ran, so the registry's claims are about other bytes. */
+  | { kind: 'not-applicable'; reason: string }
+  | { kind: 'unavailable'; reason: string };
+
+/**
+ * The hash a verified-build registry keys on.
+ *
+ * `sha256` over the ELF that follows the ProgramData header, with trailing zero
+ * padding removed. The padding matters: a ProgramData account is allocated with
+ * room for a larger future upgrade, so Whirlpool's is 10,485,760 bytes of which
+ * only 1,537,769 are program. Hashing the untrimmed buffer produces a number that
+ * matches nothing.
+ *
+ * Confirmed against mainnet during design: this reproduces the registry's
+ * reported `on_chain_hash` for Whirlpool byte for byte.
+ */
+export function programHash(programDataBytes: Uint8Array): string {
+  const elf = programDataBytes.subarray(PROGRAM_DATA_HEADER_SIZE);
+
+  let end = elf.length;
+  while (end > 0 && elf[end - 1] === 0) end -= 1;
+
+  return createHash('sha256').update(elf.subarray(0, end)).digest('hex');
+}
+
+interface RegistryEntry {
+  is_verified?: unknown;
+  on_chain_hash?: unknown;
+  executable_hash?: unknown;
+  repo_url?: unknown;
+  commit?: unknown;
+  last_verified_at?: unknown;
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+/**
+ * Pick the registry entry worth believing, if any.
+ *
+ * `status-all` returns every submission for a program, and mainnet really does
+ * return conflicting ones: Whirlpool has a verified entry alongside an unverified
+ * entry pointing at the same repository whose `executable_hash` differs from what
+ * is deployed. Taking the first would report a repo that does not build to the
+ * running binary.
+ *
+ * Two conditions, both necessary. `is_verified` is the registry's own judgement.
+ * `executable_hash === on_chain_hash` is the substance behind it: the commit was
+ * rebuilt and produced exactly the bytes that are deployed.
+ */
+export function selectTrustworthyEntry(entries: readonly RegistryEntry[]): RegistryEntry | null {
+  for (const entry of entries) {
+    if (entry.is_verified !== true) continue;
+
+    const onChain = asString(entry.on_chain_hash);
+    const executable = asString(entry.executable_hash);
+    if (onChain === null || onChain !== executable) continue;
+    if (asString(entry.repo_url) === null || asString(entry.commit) === null) continue;
+
+    return entry;
+  }
+
+  return null;
+}
+
+async function queryRegistry(
+  registryUrl: string,
+  programId: string,
+): Promise<RegistryEntry[] | { error: string }> {
+  try {
+    const response = await fetch(`${registryUrl.replace(/\/$/, '')}/status-all/${programId}`, {
+      headers: { accept: 'application/json' },
+    });
+
+    if (!response.ok) {
+      return { error: `The verified-build registry answered ${String(response.status)}.` };
+    }
+
+    const body: unknown = await response.json();
+    return Array.isArray(body) ? (body as RegistryEntry[]) : [];
+  } catch (error) {
+    return {
+      error: `The verified-build registry could not be reached: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    };
+  }
+}
+
+export interface VerifyOptions {
+  /** An empty string disables registry lookups, which is reported rather than done silently. */
+  registryUrl?: string | undefined;
+}
+
+/**
+ * Establish the repository and commit that produced the deployed binary.
+ *
+ * The deployment check gates this entirely. A registry entry describes whatever
+ * is deployed *now*, so on an upgraded or closed program it is a statement about
+ * different bytes than the ones that ran — using it would attach a real, correct
+ * commit to the wrong transaction, which is worse than attaching nothing.
+ *
+ * The registry's own `on_chain_hash` is not taken on trust either. The bytes are
+ * fetched and hashed here, and a disagreement is reported rather than resolved in
+ * the registry's favour: the whole point of the hash is that this tool checked it.
+ */
+export async function resolveVerifiedBuild(
+  programId: string,
+  deployment: Deployment,
+  source: AccountSource,
+  options: VerifyOptions = {},
+): Promise<VerificationOutcome> {
+  if (deployment.kind !== 'live') {
+    return {
+      kind: 'not-applicable',
+      reason:
+        deployment.kind === 'immutable'
+          ? 'The program is owned by a non-upgradeable loader, so it has no ProgramData account ' +
+            'to hash and no verified-build entry can be checked against it.'
+          : 'The binary on chain is not the one that ran, so any verified-build entry describes ' +
+            'different bytes and is not consulted.',
+    };
+  }
+
+  const registryUrl = options.registryUrl ?? DEFAULT_VERIFY_REGISTRY_URL;
+  if (registryUrl === '') {
+    return {
+      kind: 'unavailable',
+      reason:
+        'Verified-build lookups are disabled, so no repository or commit is resolved. Set ' +
+        'SOLVBANA_VERIFY_REGISTRY_URL to enable them.',
+    };
+  }
+
+  const entries = await queryRegistry(registryUrl, programId);
+  if (!Array.isArray(entries)) return { kind: 'unavailable', reason: entries.error };
+
+  const entry = selectTrustworthyEntry(entries);
+  if (entry === null) {
+    return {
+      kind: 'unverified',
+      reason:
+        entries.length === 0
+          ? `${programId} has no entry in the verified-build registry, so no source repository ` +
+            'is known for it. Line numbers are out of reach for this program.'
+          : `${programId} has registry entries, but none is both marked verified and reports a ` +
+            'rebuilt hash equal to what is deployed. The published source does not build to the ' +
+            'running binary.',
+    };
+  }
+
+  const account = await source.fetchAccount(deployment.programData);
+  if (account === null) {
+    return {
+      kind: 'unavailable',
+      reason: `The ProgramData account ${deployment.programData} could not be read to hash it.`,
+    };
+  }
+
+  const computed = programHash(Uint8Array.from(Buffer.from(account.data, 'base64')));
+  const claimed = asString(entry.on_chain_hash);
+
+  if (computed !== claimed) {
+    return {
+      kind: 'unverified',
+      reason:
+        `The registry reports an on-chain hash of ${String(claimed)} for ${programId}, but the ` +
+        `deployed ProgramData account hashes to ${computed}. The entry describes a different ` +
+        'binary, so its repository and commit are not used.',
+    };
+  }
+
+  return {
+    kind: 'verified',
+    build: {
+      repoUrl: asString(entry.repo_url) ?? '',
+      commit: asString(entry.commit) ?? '',
+      hash: computed,
+      lastVerifiedAt: asString(entry.last_verified_at),
+    },
+  };
+}

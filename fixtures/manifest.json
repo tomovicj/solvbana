@@ -324,6 +324,14 @@
         "errorNumber": 2012,
         "site": null,
         "account": null
+      },
+      "phase2": {
+        "confidence": "variant-only",
+        "errorName": "ConstraintAddress",
+        "errorNumber": 2012,
+        "naming": "anchor-builtin",
+        "handler": "increase_liquidity_v2",
+        "handlerSource": "discriminator"
       }
     },
     {
@@ -427,6 +435,14 @@
         "errorNumber": 2012,
         "site": null,
         "account": null
+      },
+      "phase2": {
+        "confidence": "variant-only",
+        "errorName": "ConstraintAddress",
+        "errorNumber": 2012,
+        "naming": "anchor-builtin",
+        "handler": "increase_liquidity_v2",
+        "handlerSource": "discriminator"
       }
     },
     {

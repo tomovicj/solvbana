@@ -4,17 +4,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-**Phases 0 (ingest & normalize) and 1 (exact answers without source) are done.** `POST /diagnose` fetches a real transaction, normalizes it into a typed `FailedTransaction`, and then reads its logs for everything they disclose on their own — returning a structured `Finding` alongside the confidence, candidates, and reasons.
+**Phases 0 (ingest), 1 (log analysis) and 2 (source resolution) are done.** `POST /diagnose` fetches a real transaction, normalizes it into a typed `FailedTransaction`, reads its logs for everything they disclose on their own, and then resolves the failing program — proving whether the deployed binary is the one that ran, fetching its IDL, and checking its hash against a verified-build registry.
 
-Against the 45-signature corpus that currently lands **7 `exact`, 30 `variant-only`, 8 `unknown`**. The `exact` answers are panics and `AnchorError thrown in <file>:<line>`, both of which are locations the program printed about itself. The `unknown` ones are bare `Custom(n)` codes from programs that published no name — those need Phase 2's IDL resolution, which is next.
+Against the 45-signature corpus that lands **7 `exact`, 32 `variant-only`, 6 `unknown`**. The `exact` answers are panics and `AnchorError thrown in <file>:<line>`, both locations the program printed about itself. The six remaining `unknown` are programs that publish no on-chain IDL, or whose ProgramData has been closed — undecoded by design rather than by omission.
 
-Phase 1 turned out to reach further than the roadmap assumed: Anchor logs the variant name and the `#[msg]` text in the same line as the error, and logs the handler name in a `Program log: Instruction: <Handler>` prologue, so none of that waits on Phase 2 or Phase 3 for Anchor programs.
+Phase 1 reached further than the roadmap assumed: Anchor logs the variant name and the `#[msg]` text in the same line as the error, and logs the handler name in a `Program log: Instruction: <Handler>` prologue, so none of that waits on an IDL for Anchor programs. Phase 3 is next, and the repo and commit it needs are what Phase 2 produces.
 
 The contract every later tier has to keep: always answer, never throw for an undiagnosable input, and always say what the answer is worth and why.
 
 ### Reading a failure: `packages/core/src/analyze/`
 
 Pure and I/O-free, like `ingest/`. `analyze(transaction)` runs detectors cheapest-and-most-specific first and stops at the first that answers, because the categories overlap in `meta.err` — a panic, a compute exhaustion, and a stack overrun all surface as `ProgramFailedToComplete`, and only the logs tell them apart.
+
+### Resolving the program: `packages/core/src/resolve/`
+
+Async and I/O-bound, unlike `analyze/`, and reached through a second port — `AccountSource` beside `TransactionSource`. `diagnose()` runs the free log analysis first and only resolves when it would change the answer: an error the program named itself is not re-decided by an IDL that may be a deployment behind.
+
+The cascade halts at the deployment check. If the binary on chain is not the binary that ran, no amount of IDL or registry work produces a statement about the right code, so nothing downstream runs.
+
+**Resolution is an enrichment, never a prerequisite.** `deps.accounts` is optional, and a resolution that throws is caught and appended to `reasons` — the log-derived answer must survive an RPC failure that happens after it was already established.
 
 **`frames.ts` is load-bearing and easy to get wrong.** It rebuilds the CPI frame stack from the `invoke` / `success` / `failed` bracket sequence, and every other detector reads a *single frame's own lines*. Corpus signature `2WH1WJ5N…` is the reason: the failing program logs `Instruction: BuyExactQuoteIn`, then calls a fee program that logs `Instruction: GetFees` and returns successfully, and only afterwards throws. Anything that scans "the last `Instruction:` line before the failure" reports `GetFees` — a handler in a program that did not fail. `failingFrame` orders by `closedAt`, not by depth or invoke order, because a CPI failure logs the innermost `failed:` line first and each caller's on the way out.
 
@@ -36,6 +44,7 @@ Node/TypeScript pnpm workspace, ESM throughout:
 | `pnpm test` / `pnpm test:watch` | Vitest |
 | `pnpm harvest` | Add mainnet failures to the fixture corpus. Manual only, never CI |
 | `pnpm record <sig>` | Add one named signature to the corpus |
+| `pnpm snapshot` | Record the program, ProgramData header and IDL accounts every corpus program resolves through. Manual only, never CI |
 
 Single test file: `pnpm vitest run packages/server/test/health.test.ts`. Single test by name: add `-t "returns ok"`.
 
@@ -70,7 +79,9 @@ These are the load-bearing correctness rules from `ROADMAP.md`'s cross-cutting s
 
 **When more than one candidate survives narrowing, report all of them, ranked.** Never collapse a candidate set to its top entry. Three honest candidates cost less trust than one confident wrong line.
 
-**Slot accuracy is non-negotiable.** Programs get upgraded, so the binary must be the one live at the _failing slot_ — resolved by walking `Upgrade` instructions on the ProgramData account and bisecting by slot. Silently falling back to the current deployment is a bug, not a convenience. If the historical binary cannot be resolved, degrade confidence and state why in the output.
+**Slot accuracy is non-negotiable.** Programs get upgraded, so the binary must be the one live at the _failing slot_. This reduces to one number: `UpgradeableLoaderState::ProgramData` stores its most recent deployment slot in its header, so a 45-byte read settles it. At or before the failing slot means the current deployment provably *is* the historical one; a non-upgradeable loader means it always was.
+
+When the program was redeployed after the transaction, **the answer is a refusal, not a fallback.** `getAccountInfo` serves current state only, so the bytes that ran are not retrievable at any price — enumerating the account's `Upgrade` transactions would name the deployment without producing it. Silently reporting the current binary is the exact failure this project exists to avoid: it yields source that looks right and describes different code.
 
 **Mapped line numbers require a verified build.** Hash the resolved on-chain binary and confirm it matches the verified-build registry entry _before_ producing any source mapping. Unverified programs are capped at `variant-only` for anything derived from source: names and messages, never mapped lines.
 
@@ -78,7 +89,13 @@ This governs **mapping**, which is what Phases 2, 3 and 5 do — resolving a bin
 
 **`exact` means there is a location.** An answer that is read rather than inferred but names no line — an Anchor error attributed to an accounts-struct field, a compute exhaustion pinned to a frame — is `variant-only`. This makes the level checkable rather than a matter of judgement, and `corpus.test.ts` asserts it: no fixture may reach `exact` with an empty `candidates` list.
 
-**Error codes are never decoded from a range.** Anchor's reserved bands (2000–2999 constraints, 3000–3999 accounts, 6000+ user) are one framework's convention; the runtime enforces nothing, and any program may return any `u32`. Two Whirlpool fixtures in the corpus return `Custom(2012)` — `ConstraintAddress` in Anchor's table — with no Anchor logging anywhere in the transaction. They must stay `unknown` with the raw code and an explicit statement of the refusal. A built-in table may be consulted only when the failing program's **address is pinned** and its error enum published, as with SPL Token and the System Program: that is a lookup on identity, not a guess from a number.
+**Error codes are never decoded from a range.** Anchor's reserved bands (2000–2999 constraints, 3000–3999 accounts, 6000+ user) are one framework's convention; the runtime enforces nothing, and any program may return any `u32`. Two Whirlpool fixtures in the corpus return `Custom(2012)` — `ConstraintAddress` in Anchor's table — with no Anchor logging anywhere in the transaction. From the logs alone they stay `unknown` with the raw code and an explicit statement of the refusal.
+
+Three things license a name, and nothing else does:
+
+1. The program **printed it** (`Error Code: …` in an `AnchorError` line).
+2. The failing program's **address is pinned** and its error enum published, as with SPL Token and the System Program — a lookup on identity, not on a number.
+3. An **IDL was fetched from the program's Anchor-derived address**. Only an Anchor program publishes there, so this is direct evidence that Anchor's conventions apply to *this* program, and `anchorBuiltinFor` takes the resolved IDL as an argument precisely so the licence cannot be left behind at a call site. This is what turns the two Whirlpool fixtures into `ConstraintAddress`, and it is the only reason that is not the same guess Phase 1 refuses.
 
 **Replay must be validated against the ledger.** A replayed transaction has to reproduce the recorded `meta.err` and compute consumption. Divergence means the reconstructed state is wrong — fail loudly rather than reporting the result.
 
@@ -92,6 +109,7 @@ Layout:
 
 - `fixtures/transactions/<signature>.json` — the raw `getTransaction` response, stored as wire JSON so it stays readable and diffable.
 - `fixtures/manifest.json` — hand-checked expectations per signature, plus a `distinctnessKey` the harvester uses to cap repeats. Without that cap a harvest fills with whichever error the busiest program is currently throwing, testing one code path many times over. Each entry also carries a `phase1` block — expected confidence, originating program, handler, error name and number, throw site, offending account — written by reading `meta.logMessages`, never by recording what the analyzer produced. An expectation generated from the code under test asserts nothing. A freshly harvested entry has no `phase1` block, which is the signal that it still needs checking.
+- `fixtures/programs/<programId>.json` — the on-chain state source resolution reads, recorded with the `context.slot` of the read. That slot is what keeps the corpus honest: "upgraded between the failing slot and the snapshot slot" is a fact about two fixed numbers, while a live check would silently change its answer as mainnet moves on. The ProgramData **body** is deliberately not recorded — 10MB of mostly zero padding per program is not a fixture — so the hash and trimmed length are stored as facts and the hashing path is covered synthetically instead. `fixtures/programs/manifest.json` holds the hand-checked expectations, and `fixtures/programs/synthetic/` the degrade paths a recent harvest cannot produce.
 - `fixtures/synthetic/` — hand-written edge cases a block scan will not produce: truncated logs, absent logs, missing `loadedAddresses`, null `stackHeight`, an unknown `meta.err` variant, a transaction-level failure, a 4KB stack-frame overrun, and a pinned native program returning its own `Custom` code. Kept separate so re-running the harvester cannot clobber them.
 
 Practical implications:
@@ -112,6 +130,11 @@ These are constraints of the Solana platform, not implementation choices, and ea
 - **`meta.err` names the failing top-level instruction; the logs name the program that actually failed.** For a CPI these are different, and the outer program is usually one that merely propagated the error. Report the innermost.
 - **Anchor logs the error name, number, and `#[msg]` text in the same line as the error**, in all three of its forms (`thrown in <file>:<line>`, `caused by account: <field>`, and bare `occurred`). It also logs the handler name on entry. None of this needs an IDL — but a program can be Anchor and log none of it, so the absence of these lines is not evidence the program is not Anchor.
 - **The `Left:` / `Right:` operands come in two shapes.** Integers print inline (`Left: 412250202354`); pubkeys print the label alone with the value on the following line. Handle both or lose every key comparison.
+- **Loader account layouts**, all confirmed against mainnet: a program account is 36 bytes, `[2,0,0,0]` then a 32-byte ProgramData address. ProgramData is `[3,0,0,0]`, a u64 LE `last_deploy_slot`, a 1-byte `Option` tag and 32-byte authority — ELF from byte 45.
+- **The verified-build hash is `sha256(programData[45..])` with trailing zeros trimmed.** The trim is not optional: a ProgramData account is allocated with room for a larger future upgrade, so Whirlpool's is 10,485,760 bytes of which 1,537,769 are program. Hashing the untrimmed buffer matches nothing. Verified to reproduce the registry's `on_chain_hash` exactly.
+- **Anchor publishes its IDL at `createWithSeed(findProgramAddress([], programId), "anchor:idl", programId)`**, zlib-compressed behind an 8-byte discriminator, a 32-byte authority, and a u32 LE length. The account is allocated larger than the declared length, so inflate exactly that many bytes.
+- **Two Anchor IDL layouts are live in roughly equal numbers.** Pre-0.30 has a top-level `name`, camelCase instruction names, and **no discriminators** — those must be derived as `sha256("global:" + snake_case(name))[0..8]`. From 0.30 the document has `metadata.spec`, snake_case names, and explicit discriminator arrays, which are read rather than recomputed.
+- **A verified-build registry returns conflicting entries for one program.** `status-all` for Whirlpool includes an unverified entry for the same repository whose `executable_hash` differs from what is deployed. Require `is_verified` *and* `executable_hash === on_chain_hash`, then recompute the hash locally rather than believing the reported one.
 - **`meta.loadedAddresses` usually makes address-lookup-table resolution free** — the RPC returns the resolved writable and readonly addresses, so no separate table fetch is needed. When it is absent, do not fetch the table: its contents may have changed since the failing slot. Degrade and say so.
 - A `null` response is ambiguous — "never landed" and "outside the retention window" are different outcomes and must be distinguished, not merged.
 - Only landed transactions are retrievable. Preflight rejections, dropped transactions, and expired blockhashes were never recorded.

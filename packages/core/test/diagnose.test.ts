@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { diagnose, reviveRawTransaction, type TransactionSource } from '@solvbana/core';
+import {
+  clearResolutionCache,
+  diagnose,
+  reviveRawTransaction,
+  type TransactionSource,
+} from '@solvbana/core';
+import { corpusAccounts, readJson } from './fixtures.ts';
 
 const FIXTURES = join(import.meta.dirname, '..', '..', '..', 'fixtures');
 
@@ -10,6 +16,19 @@ function fixtureSource(...parts: string[]): TransactionSource {
     JSON.parse(readFileSync(join(FIXTURES, ...parts), 'utf8')) as unknown,
   );
   return { fetchTransaction: () => Promise.resolve({ kind: 'found', raw, endpoint: 'primary' }) };
+}
+
+interface CorpusEntry {
+  signature: string;
+  file: string;
+  phase1: { program: string };
+}
+
+function corpusEntry(prefix: string): CorpusEntry {
+  const { entries } = readJson<{ entries: CorpusEntry[] }>('manifest.json');
+  const entry = entries.find((candidate) => candidate.signature.startsWith(prefix));
+  if (entry === undefined) throw new Error(`No corpus entry starting ${prefix}`);
+  return entry;
 }
 
 const SIGNATURE = 'sig';
@@ -52,6 +71,58 @@ describe('diagnose', () => {
       failure: { kind: 'anchor', account: 'vault' },
     });
     expect(result.summary).toMatch(/ConstraintSeeds \(2006\)/);
+  });
+
+  it('names a code the logs left undecoded once an IDL licenses the table', async () => {
+    // The end-to-end shape of Phase 2: Whirlpool returns Custom(2012) and logs
+    // nothing about it, so the logs alone must refuse. Its published IDL is what
+    // establishes that Anchor defines the code, and the handler falls out of the
+    // discriminator at the same time.
+    clearResolutionCache();
+    const entry = corpusEntry('3BFz86dEZ2');
+    const result = await diagnose(entry.signature, {
+      source: fixtureSource('transactions', entry.file),
+      accounts: corpusAccounts([entry.phase1.program]),
+    });
+
+    expect(result.confidence).toBe('variant-only');
+    expect(result.finding?.error).toMatchObject({
+      code: 2012,
+      name: 'ConstraintAddress',
+      naming: 'anchor-builtin',
+    });
+    expect(result.finding?.handlerSource).toBe('discriminator');
+    expect(result.finding?.resolution?.deployment.kind).toBe('live');
+    expect(result.summary).toMatch(/ConstraintAddress \(2012\)/);
+  });
+
+  it('answers from the logs alone when no account source is supplied', async () => {
+    // Resolution is an enrichment, not a prerequisite. Without accounts the
+    // diagnosis is exactly what Phase 1 established.
+    clearResolutionCache();
+    const entry = corpusEntry('3BFz86dEZ2');
+    const result = await diagnose(entry.signature, {
+      source: fixtureSource('transactions', entry.file),
+    });
+
+    expect(result.confidence).toBe('unknown');
+    expect(result.finding?.resolution).toBeUndefined();
+  });
+
+  it('keeps the log-derived answer when resolution throws', async () => {
+    clearResolutionCache();
+    const entry = corpusEntry('3BFz86dEZ2');
+    const result = await diagnose(entry.signature, {
+      source: fixtureSource('transactions', entry.file),
+      accounts: {
+        fetchAccount: () => Promise.reject(new Error('endpoint down')),
+        fetchAccountPrefix: () => Promise.reject(new Error('endpoint down')),
+      },
+    });
+
+    expect(result.confidence).toBe('unknown');
+    expect(result.summary).toMatch(/Custom\(2012\)/);
+    expect(result.reasons.join(' ')).toMatch(/endpoint down/);
   });
 
   it('names the program that originated a failure, not the one that propagated it', async () => {

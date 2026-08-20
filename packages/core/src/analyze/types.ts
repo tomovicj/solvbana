@@ -1,4 +1,5 @@
 import type { SourceLocation } from '../diagnosis.ts';
+import type { Resolution } from '../resolve/types.ts';
 
 /**
  * Where an error's name and message came from.
@@ -19,7 +20,17 @@ export type ErrorNaming =
   | 'native-table'
   /** The runtime's own `InstructionError` variant name, which arrives in `meta.err`. */
   | 'runtime-variant'
-  /** Not named. The raw code is all there is until an IDL is resolved in Phase 2. */
+  /** Declared in the program's own on-chain IDL, under `errors[]`. */
+  | 'idl'
+  /**
+   * Anchor's built-in error table.
+   *
+   * Legitimate only because an IDL was found at this program's Anchor-derived
+   * address, which is what demonstrates the framework's reserved ranges apply to
+   * it. Without that proof the code stays undecoded — see the note above.
+   */
+  | 'anchor-builtin'
+  /** Not named. The raw code is all there is. */
   | 'none';
 
 export interface DecodedError {
@@ -90,13 +101,28 @@ export type FailureKind =
  * on them. A renderer that had to re-parse its own summary string would be a
  * parser for a format nobody specified.
  */
+/** How the handler name was established. */
+export type HandlerSource =
+  /** Anchor's `Program log: Instruction: <Handler>` prologue, read from the failing frame. */
+  | 'logged'
+  /** Matched the instruction's leading 8 bytes against the IDL's discriminators. */
+  | 'discriminator';
+
 export interface Finding {
   /** The program that originated the failure — the innermost one, not the caller. */
   program: string | null;
-  /** Anchor's `Program log: Instruction: <Handler>` prologue, read from the failing frame only. */
   handler: string | null;
+  /** `null` exactly when `handler` is. */
+  handlerSource: HandlerSource | null;
   error: DecodedError;
   failure: FailureKind;
   /** What went wrong in the reader's mental model, in plain words. */
   explanation: string;
+  /**
+   * What source resolution established about `program`.
+   *
+   * Absent when resolution did not run — there was no transaction, no failing
+   * program to resolve, or the caller supplied no account source.
+   */
+  resolution?: Resolution;
 }

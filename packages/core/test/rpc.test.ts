@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createTransactionSource, explainNotFound } from '@solvbana/core';
+import { createAccountSource, createTransactionSource, explainNotFound } from '@solvbana/core';
 
 /**
  * Drive the client through a stubbed `fetch`.
@@ -151,6 +151,68 @@ describe('createTransactionSource', () => {
 
     const call = bodies.find((body) => body.method === 'getTransaction');
     expect(call?.params[1]).toMatchObject({ maxSupportedTransactionVersion: 0, encoding: 'json' });
+  });
+});
+
+describe('createAccountSource', () => {
+  const ADDRESS = 'whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc';
+
+  function stubAccount(value: unknown, slot = 100): { params: unknown[] }[] {
+    const calls: { params: unknown[] }[] = [];
+    vi.stubGlobal('fetch', (_input: string, init?: RequestInit) => {
+      calls.push(requestBody(init));
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ jsonrpc: '2.0', id: 1, result: { context: { slot }, value } }),
+          { headers: { 'content-type': 'application/json' } },
+        ),
+      );
+    });
+    return calls;
+  }
+
+  it('carries the slot the read was served at', async () => {
+    // Source resolution compares a deployment slot against this, so a read
+    // without it cannot answer whether a program was upgraded since.
+    stubAccount(
+      {
+        owner: 'BPFLoaderUpgradeab1e11111111111111111111111',
+        executable: true,
+        data: ['AAAA', 'base64'],
+        space: 36,
+      },
+      439652088,
+    );
+
+    await expect(
+      createAccountSource({ rpcUrl: PRIMARY }).fetchAccount(ADDRESS),
+    ).resolves.toMatchObject({
+      readAtSlot: 439652088n,
+      owner: 'BPFLoaderUpgradeab1e11111111111111111111111',
+    });
+  });
+
+  it('reports the full on-chain size even when only a prefix was fetched', async () => {
+    // A ProgramData account is megabytes of mostly padding; the header read has
+    // to say how much it did not fetch, and `space` is the only thing that does.
+    const calls = stubAccount({
+      owner: 'BPFLoaderUpgradeab1e11111111111111111111111',
+      executable: false,
+      data: ['AAAA', 'base64'],
+      space: 10485760,
+    });
+
+    const account = await createAccountSource({ rpcUrl: PRIMARY }).fetchAccountPrefix(ADDRESS, 45);
+
+    expect(account?.size).toBe(10485760);
+    expect(calls[0]?.params[1]).toMatchObject({ dataSlice: { offset: 0, length: 45 } });
+  });
+
+  it('returns null for an account that does not exist', async () => {
+    stubAccount(null);
+    await expect(
+      createAccountSource({ rpcUrl: PRIMARY }).fetchAccount(ADDRESS),
+    ).resolves.toBeNull();
   });
 });
 
