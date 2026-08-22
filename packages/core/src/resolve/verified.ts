@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto';
 import type { AccountSource } from '../rpc/source.ts';
 import { PROGRAM_DATA_HEADER_SIZE, type Deployment } from './deployment.ts';
+import { elfHash } from './hash.ts';
 
 export const DEFAULT_VERIFY_REGISTRY_URL = 'https://verify.osec.io';
 
@@ -49,24 +49,13 @@ export type VerificationOutcome =
   | { kind: 'unavailable'; reason: string };
 
 /**
- * The hash a verified-build registry keys on.
+ * The hash a verified-build registry keys on, read out of a ProgramData account.
  *
- * `sha256` over the ELF that follows the ProgramData header, with trailing zero
- * padding removed. The padding matters: a ProgramData account is allocated with
- * room for a larger future upgrade, so Whirlpool's is 10,485,760 bytes of which
- * only 1,537,769 are program. Hashing the untrimmed buffer produces a number that
- * matches nothing.
- *
- * Confirmed against mainnet during design: this reproduces the registry's
- * reported `on_chain_hash` for Whirlpool byte for byte.
+ * The ELF starts after the 45-byte loader header; {@link elfHash} does the rest,
+ * including the trailing-zero trim that the padding makes necessary.
  */
 export function programHash(programDataBytes: Uint8Array): string {
-  const elf = programDataBytes.subarray(PROGRAM_DATA_HEADER_SIZE);
-
-  let end = elf.length;
-  while (end > 0 && elf[end - 1] === 0) end -= 1;
-
-  return createHash('sha256').update(elf.subarray(0, end)).digest('hex');
+  return elfHash(programDataBytes.subarray(PROGRAM_DATA_HEADER_SIZE));
 }
 
 interface RegistryEntry {

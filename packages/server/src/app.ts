@@ -6,9 +6,11 @@ import {
   type AccountSource,
   type TransactionSource,
 } from '@solvbana/core';
+import { createFilesystemArtifactStore, type WritableArtifactStore } from './artifacts/store.ts';
 import type { AppConfig } from './config.ts';
 import { errorBody } from './schemas/error.ts';
 import { registerHealthRoutes } from './routes/health.ts';
+import { registerArtifactRoutes } from './routes/artifacts.ts';
 import { registerDiagnoseRoutes } from './routes/diagnose.ts';
 
 export interface BuildAppOptions {
@@ -25,6 +27,15 @@ export interface BuildAppOptions {
    * written before Phase 2 already expects.
    */
   accounts?: AccountSource;
+  /**
+   * Override the artifact store.
+   *
+   * Tests pass an in-memory or temporary-directory store so the suite neither
+   * touches a configured path nor leaves anything behind. Left unset with no
+   * `SOLVBANA_ARTIFACT_DIR` configured, there is no store and uploads are
+   * refused rather than silently discarded.
+   */
+  artifacts?: WritableArtifactStore;
 }
 
 /**
@@ -41,6 +52,7 @@ export function buildApp(config: AppConfig, options: BuildAppOptions = {}) {
         ? { transport: { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss' } } }
         : {}),
     },
+    bodyLimit: config.SOLVBANA_MAX_BODY_BYTES,
   }).withTypeProvider<TypeBoxTypeProvider>();
 
   app.decorate('config', config);
@@ -81,7 +93,14 @@ export function buildApp(config: AppConfig, options: BuildAppOptions = {}) {
       ? createAccountSource({ rpcUrl: config.SOLANA_RPC_URL })
       : undefined);
 
+  const artifacts =
+    options.artifacts ??
+    (config.SOLVBANA_ARTIFACT_DIR === undefined
+      ? undefined
+      : createFilesystemArtifactStore(config.SOLVBANA_ARTIFACT_DIR));
+
   registerHealthRoutes(app);
+  registerArtifactRoutes(app, artifacts, accounts);
   registerDiagnoseRoutes(app, source, accounts, {
     registryUrl: config.SOLVBANA_VERIFY_REGISTRY_URL,
     verifySource: true,

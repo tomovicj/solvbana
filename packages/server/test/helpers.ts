@@ -13,6 +13,7 @@ export const TEST_CONFIG: AppConfig = {
   // Empty disables verified-build lookups, which keeps the suite off the network
   // even if a test ever supplies an account source.
   SOLVBANA_VERIFY_REGISTRY_URL: '',
+  SOLVBANA_MAX_BODY_BYTES: 32 * 1024 * 1024,
 };
 
 const FIXTURES = join(import.meta.dirname, '..', '..', '..', 'fixtures');

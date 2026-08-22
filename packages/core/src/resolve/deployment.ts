@@ -34,11 +34,19 @@ const STATE_PROGRAM_DATA = 3;
  */
 export const PROGRAM_DATA_HEADER_SIZE = 45;
 
-export type Deployment =
-  /**
-   * The deployment live now is the one that ran: its `lastDeploySlot` is at or
-   * before the failing transaction's slot. Read, not assumed.
-   */
+/**
+ * What is deployed for a program right now, before any question about whether
+ * that is what ran.
+ *
+ * Split out from {@link Deployment} because two callers need different halves of
+ * the same read. A diagnosis asks about a past transaction and must know whether
+ * the binary changed since; an artifact upload has no transaction and only asks
+ * what is deployed today. Keeping the slot comparison out of this one is what
+ * lets the upload path answer honestly instead of inventing a slot to compare
+ * against.
+ */
+export type CurrentDeployment =
+  /** The upgradeable loader owns it, and this is where its bytes live. */
   | {
       kind: 'live';
       programData: string;
@@ -49,11 +57,18 @@ export type Deployment =
     }
   /** A non-upgradeable loader owns this program, so its bytes can never have changed. */
   | { kind: 'immutable'; loader: string }
-  /** Redeployed after the transaction ran. The bytes that ran are no longer on chain. */
-  | { kind: 'upgraded-since'; lastDeploySlot: bigint; failingSlot: bigint; programData: string }
   /** The ProgramData account no longer exists — the program was closed and its bytes reclaimed. */
   | { kind: 'closed'; programData: string }
   | { kind: 'unavailable'; reason: string };
+
+export type Deployment =
+  /**
+   * The deployment live now is the one that ran: its `lastDeploySlot` is at or
+   * before the failing transaction's slot. Read, not assumed.
+   */
+  | CurrentDeployment
+  /** Redeployed after the transaction ran. The bytes that ran are no longer on chain. */
+  | { kind: 'upgraded-since'; lastDeploySlot: bigint; failingSlot: bigint; programData: string };
 
 function bytesOf(snapshot: AccountSnapshot): Uint8Array {
   return Uint8Array.from(Buffer.from(snapshot.data, 'base64'));
@@ -80,26 +95,17 @@ export function lastDeploySlotOf(bytes: Uint8Array): bigint | null {
 }
 
 /**
- * Establish whether the binary on chain now is the binary that ran.
+ * Read what is deployed for a program right now.
  *
- * This is the correctness gate the whole source-resolution tier hangs from, and
- * it reduces to one number. `UpgradeableLoaderState::ProgramData` stores the slot
- * of its most recent deployment in its header, so a 45-byte read answers it: if
- * that slot is at or before the failing transaction's, nothing has replaced the
- * bytes since, and the current deployment provably *is* the historical one.
- *
- * When it is not, the answer is a refusal rather than a fallback. `getAccountInfo`
- * only ever returns current state, so the bytes that ran are not retrievable at
- * any price from a standard RPC — walking the account's `Upgrade` transactions
- * would name the deployment without producing it. Reporting the current binary
- * anyway is the exact failure mode this project exists to avoid: it yields source
- * that looks right and describes different code.
+ * Decodes the loader accounts and stops there. It reports where the bytes live
+ * and when they were last written, and deliberately says nothing about whether
+ * they are the bytes any particular transaction ran — that comparison needs a
+ * slot, and belongs to {@link resolveDeployment}.
  */
-export async function resolveDeployment(
+export async function currentDeployment(
   programId: string,
-  failingSlot: bigint,
   source: AccountSource,
-): Promise<Deployment> {
+): Promise<CurrentDeployment> {
   const program = await source.fetchAccount(programId);
 
   if (program === null) {
@@ -144,10 +150,6 @@ export async function resolveDeployment(
     };
   }
 
-  if (lastDeploySlot > failingSlot) {
-    return { kind: 'upgraded-since', lastDeploySlot, failingSlot, programData };
-  }
-
   return {
     kind: 'live',
     programData,
@@ -155,6 +157,39 @@ export async function resolveDeployment(
     programDataSize: header.size,
     readAtSlot: header.readAtSlot,
   };
+}
+
+/**
+ * Establish whether the binary on chain now is the binary that ran.
+ *
+ * This is the correctness gate the whole source-resolution tier hangs from, and
+ * it reduces to one number. `UpgradeableLoaderState::ProgramData` stores the slot
+ * of its most recent deployment in its header, so a 45-byte read answers it: if
+ * that slot is at or before the failing transaction's, nothing has replaced the
+ * bytes since, and the current deployment provably *is* the historical one.
+ *
+ * When it is not, the answer is a refusal rather than a fallback. `getAccountInfo`
+ * only ever returns current state, so the bytes that ran are not retrievable at
+ * any price from a standard RPC — walking the account's `Upgrade` transactions
+ * would name the deployment without producing it. Reporting the current binary
+ * anyway is the exact failure mode this project exists to avoid: it yields source
+ * that looks right and describes different code.
+ */
+export async function resolveDeployment(
+  programId: string,
+  failingSlot: bigint,
+  source: AccountSource,
+): Promise<Deployment> {
+  const current = await currentDeployment(programId, source);
+
+  // The one question a current-state read cannot answer on its own. Everything
+  // above is about what is deployed; this is about whether that is what ran.
+  if (current.kind === 'live' && current.lastDeploySlot > failingSlot) {
+    const { lastDeploySlot, programData } = current;
+    return { kind: 'upgraded-since', lastDeploySlot, failingSlot, programData };
+  }
+
+  return current;
 }
 
 /** Whether this deployment is the one that ran, and therefore safe to resolve source against. */

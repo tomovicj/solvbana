@@ -84,3 +84,39 @@ export interface AccountSource {
    */
   fetchAccountPrefix(address: string, length: number): Promise<AccountSnapshot | null>;
 }
+
+/**
+ * The port supplied build artifacts are read through.
+ *
+ * A third port beside {@link TransactionSource} and {@link AccountSource},
+ * because it answers a different kind of question: not "what does the chain
+ * say" but "what has someone handed us about this program". Roughly 94% of the
+ * programs that actually fail on mainnet publish neither an on-chain IDL nor a
+ * verified build, so for those the only way to name an error code is for the
+ * developer to supply the declarations themselves.
+ *
+ * Read-only on purpose. Ingesting an upload is a transport concern and lives in
+ * the server; the engine only ever looks things up. Keeping the port this narrow
+ * is what lets a filesystem store and an object store be interchangeable, and
+ * what lets a test supply artifacts from memory.
+ *
+ * Note what is *not* here. A supplied binary is not consulted during diagnosis:
+ * the question it answers — whether a local build is the one deployed — is about
+ * current state and is settled once, when the artifact is stored, rather than on
+ * every signature.
+ */
+export interface ArtifactStore {
+  /**
+   * The IDL document filed for a program, or `null` when none has been.
+   *
+   * Wrapped rather than returned bare because the document is arbitrary JSON and
+   * could itself be `null`, which would otherwise be indistinguishable from
+   * nothing being stored.
+   *
+   * Returned unparsed. What arrives is a JSON document somebody uploaded, and
+   * the caller has to establish that it describes the program that actually ran
+   * before reading anything out of it — an uploaded file is not evidence about
+   * chain state the way an account at the Anchor-derived address is.
+   */
+  fetchIdl(programId: string): Promise<{ document: unknown } | null>;
+}

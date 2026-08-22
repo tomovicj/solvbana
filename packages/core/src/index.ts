@@ -16,7 +16,9 @@ export {
 
 export {
   decodeBase58,
+  parseAddress,
   parseSignature,
+  type AddressParseResult,
   type SignatureParseFailure,
   type SignatureParseResult,
 } from './signature.ts';
@@ -83,6 +85,7 @@ export {
 } from './resolve/anchor-codes.ts';
 
 export {
+  currentDeployment,
   describeDeployment,
   isSlotAccurate,
   lastDeploySlotOf,
@@ -90,6 +93,7 @@ export {
   resolveDeployment,
   BPF_LOADER_UPGRADEABLE,
   PROGRAM_DATA_HEADER_SIZE,
+  type CurrentDeployment,
   type Deployment,
 } from './resolve/deployment.ts';
 
@@ -108,6 +112,8 @@ export {
   type IdlSeed,
   type ResolvedIdl,
 } from './resolve/idl.ts';
+
+export { elfHash } from './resolve/hash.ts';
 
 export { refineWithResolution } from './resolve/refine.ts';
 
@@ -218,6 +224,7 @@ export {
 export type {
   AccountSnapshot,
   AccountSource,
+  ArtifactStore,
   Endpoint,
   FetchOutcome,
   NotFoundReason,

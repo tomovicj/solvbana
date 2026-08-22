@@ -30,6 +30,25 @@ const ConfigSchema = Type.Object({
    * says so rather than quietly omitting source provenance.
    */
   SOLVBANA_VERIFY_REGISTRY_URL: Type.String({ default: 'https://verify.osec.io' }),
+  /**
+   * Directory backing the artifact store, holding IDLs and program binaries
+   * developers have uploaded.
+   *
+   * Roughly 94% of the programs that fail on mainnet publish neither an on-chain
+   * IDL nor a verified build, so for those this is the only route to an error
+   * name. Unset disables the store entirely, and a diagnosis says so rather than
+   * quietly omitting the possibility.
+   */
+  SOLVBANA_ARTIFACT_DIR: Type.Optional(Type.String({ minLength: 1 })),
+  /**
+   * Largest request body accepted, in bytes.
+   *
+   * Fastify defaults to 1MB, which rejects most real program uploads: corpus
+   * binaries reach 1.5MB of ELF, and base64 adds a third again. The default here
+   * is sized for that with room to spare rather than left to be discovered as a
+   * 413 on a developer's first upload.
+   */
+  SOLVBANA_MAX_BODY_BYTES: Type.Integer({ minimum: 1024, default: 32 * 1024 * 1024 }),
 });
 
 export type AppConfig = Static<typeof ConfigSchema>;
