@@ -55,8 +55,15 @@ const maxBlocks = numericArg('--blocks', 60);
  * Each one costs a handful of account reads on top of the block fetch, so a few
  * hundred of them will rate-limit an endpoint that serves a single diagnosis
  * without complaint. Pacing is cheaper than discovering the ceiling at 429.
+ *
+ * 120ms was enough while most failures never reached resolution at all. Once the
+ * failing program is attributed from the instruction index too, resolution runs
+ * on far more of the sample, and at 120ms 17% of a 200-failure run came back
+ * throttled. That is measurement noise wearing the costume of a finding, which
+ * is why the default is now 400ms and why a throttled diagnosis is bucketed
+ * apart from the real blockers.
  */
-const delay = numericArg('--delay', 120);
+const delay = numericArg('--delay', 400);
 /**
  * Most failures taken from any one block.
  *
@@ -113,6 +120,17 @@ function sourceFor(raw: RawTransaction): TransactionSource {
 }
 
 /**
+ * An endpoint asking for room, rather than anything about the transaction.
+ *
+ * Worth separating because it is not a diagnosis outcome at all. Reported
+ * alongside the real blockers it reads as a limitation of the engine, when it
+ * actually means the run went too fast and the sample is understated by however
+ * many diagnoses got throttled — the opposite of what the number would suggest.
+ */
+const THROTTLED = /\b429\b|too many requests|rate.?limit/i;
+const RATE_LIMITED = 'endpoint rate-limited this run \u2014 measurement noise, not a result';
+
+/**
  * Why no program could be named as the failing one.
  *
  * Reported as one bucket this collapsed three unrelated situations, two of which
@@ -151,7 +169,8 @@ function blockedBy(diagnosis: Diagnosis): string {
     const failed = diagnosis.reasons.find((reason) =>
       reason.startsWith('Source resolution failed'),
     );
-    return failed === undefined ? 'resolution did not run' : 'resolution failed (see reasons)';
+    if (failed === undefined) return 'resolution did not run';
+    return THROTTLED.test(failed) ? RATE_LIMITED : 'resolution failed (see reasons)';
   }
 
   switch (resolution.deployment.kind) {
@@ -241,4 +260,17 @@ if (blockers.size > 0) {
   for (const [reason, count] of [...blockers].sort((a, b) => b[1] - a[1])) {
     console.log(`  ${String(count).padStart(5)}  ${share(count).padStart(6)}  ${reason}`);
   }
+}
+
+// Said loudly, because a throttled run looks exactly like a run that reached
+// less than it did — and it is the one failure mode of this script that would
+// have the project understate itself and believe the number.
+const throttled = blockers.get(RATE_LIMITED) ?? 0;
+if (throttled > 0) {
+  console.error(
+    `\n${String(throttled)} of ${String(sampled)} diagnoses were rate-limited rather than ` +
+      'answered, so this run understates what the engine reaches. Re-run with a larger --delay ' +
+      `than ${String(delay)}ms before quoting any of these figures.`,
+  );
+  process.exitCode = 1;
 }
