@@ -8,7 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Against the 45-signature corpus that lands **7 `exact`, 32 `variant-only`, 6 `unknown`**. The `exact` answers are panics and `AnchorError thrown in <file>:<line>`, both locations the program printed about itself. The six remaining `unknown` are programs that publish no on-chain IDL, or whose ProgramData has been closed — undecoded by design rather than by omission.
 
-**Phase 3 is deferred, and the reason is a measurement rather than a preference.** Its premise is fetching source at the verified commit Phase 2 resolves, and only 3 of the 24 live corpus programs have a verified build whose hash matches what is deployed. That is 4 of 45 transactions, none of which the phase would answer. Do not start it without first harvesting fixtures that can score it — the corpus contains no `ConstraintSeeds` or `ConstraintHasOne` failure at all. The realistic unlock is a local source path, not the registry.
+Developers can also **upload their own artifacts** for the programs that publish nothing — `POST /artifacts` takes an Anchor IDL and a compiled `.so`, and the IDL is read during diagnosis. `pnpm coverage` over 200 live mainnet failures puts the tool at 77.5% `unknown`, of which **62% is programs publishing no IDL at all**. That is the gap uploads close, and it is not one inference could.
+
+**Phase 3's source half is deferred, and the reason is a measurement rather than a preference.** Its premise is fetching source at the verified commit Phase 2 resolves, and only 3 of the 24 live corpus programs have a verified build whose hash matches what is deployed. That is 4 of 45 transactions, none of which the phase would answer. Do not start it without first harvesting fixtures that can score it — the corpus contains no `ConstraintSeeds` or `ConstraintHasOne` failure at all. The realistic unlock is a local source path, not the registry.
 
 The contract every later tier has to keep: always answer, never throw for an undiagnosable input, and always say what the answer is worth and why.
 
@@ -44,6 +46,21 @@ Three rules that are easy to get wrong, each of which produced a real bug while 
 
 The associated-token check **proves rather than infers**: every candidate triple is drawn from the transaction's own accounts and mints, so a hit means the derivation reproduced the address exactly and no naming convention was consulted. The bounded negative is reported too, with the search space stated — an address that is not the associated token account of anything the instruction passed is an address the client derived wrongly, and that is the more useful of the two outcomes.
 
+### Uploaded artifacts: `packages/core/src/resolve/local.ts` and `packages/server/src/artifacts/`
+
+Roughly 94% of the programs that fail on mainnet publish neither an on-chain IDL nor a verified build, so for those an uploaded IDL is the only route to an error name. `ArtifactStore` is a third port beside `TransactionSource` and `AccountSource`, and is deliberately the narrowest: **read-only** (ingesting an upload is transport's job) and **IDL-only** (the binary's question is about current state and is settled once, at upload).
+
+Four rules keep an uploaded file from becoming a confidently wrong answer. They are the whole point of this tier:
+
+1. **A supplied IDL is not evidence the program is Anchor.** The licence for Anchor's built-in error table is that only an Anchor program publishes at the Anchor-derived address — a fact about chain state. Anyone can write JSON. `ResolvedIdl` carries `provenance`, and `anchorBuiltinFor` refuses anything supplied. Carried *on the IDL* so it cannot be dropped at a call site.
+2. **A supplied IDL must prove it describes the program that ran**, by declaring the discriminator the failing instruction used. An 8-byte match is not a coincidence; its absence means a different program or a different version. An empty observation proves nothing and also refuses.
+3. **Names from an upload are `supplied-idl`, never `idl`.** The asymmetry with handler names is deliberate: a handler name arrives with its discriminator proof, an error name is only the document's claim.
+4. **An on-chain IDL always wins, and the deployment check still gates everything.** An upload does not reopen a question the slot check closed.
+
+**The resolution cache needed a second invalidation rule.** Its key is built from chain state, which is immutable by construction — a redeploy moves the deployment slot. An artifact store is not: it gains an IDL between two diagnoses with nothing in the key to show it. `forgetProgram(programId)` exists for that and the upload route calls it. Found against a live endpoint, where the first diagnosis after an upload kept answering from before it.
+
+**Hash both sides through `elfHash`.** A ProgramData account carries a 45-byte loader header and megabytes of zero padding; a locally built `.so` carries neither. Trimming one and not the other makes two copies of one program hash differently.
+
 Node/TypeScript pnpm workspace, ESM throughout:
 
 | Package | What it is |
@@ -63,6 +80,7 @@ Node/TypeScript pnpm workspace, ESM throughout:
 | `pnpm harvest` | Add mainnet failures to the fixture corpus. Manual only, never CI |
 | `pnpm record <sig>` | Add one named signature to the corpus |
 | `pnpm snapshot` | Record the program, ProgramData header and IDL accounts every corpus program resolves through. Manual only, never CI |
+| `pnpm coverage` | Diagnose live mainnet failures and report the confidence distribution and what blocked each unnamed one. Manual only, never CI |
 
 Single test file: `pnpm vitest run packages/server/test/health.test.ts`. Single test by name: add `-t "returns ok"`.
 
@@ -114,6 +132,8 @@ Three things license a name, and nothing else does:
 1. The program **printed it** (`Error Code: …` in an `AnchorError` line).
 2. The failing program's **address is pinned** and its error enum published, as with SPL Token and the System Program — a lookup on identity, not on a number.
 3. An **IDL was fetched from the program's Anchor-derived address**. Only an Anchor program publishes there, so this is direct evidence that Anchor's conventions apply to *this* program, and `anchorBuiltinFor` takes the resolved IDL as an argument precisely so the licence cannot be left behind at a call site. This is what turns the two Whirlpool fixtures into `ConstraintAddress`, and it is the only reason that is not the same guess Phase 1 refuses.
+
+4. An **uploaded IDL declared the code, and proved itself** by carrying the discriminator the failing instruction used. Strictly weaker than the third: it names codes the document itself declares and nothing more. It never licenses Anchor's built-in table, because a file somebody sent is not a fact about chain state, and its names are labelled `supplied-idl` so the difference survives into the output.
 
 **Replay must be validated against the ledger.** A replayed transaction has to reproduce the recorded `meta.err` and compute consumption. Divergence means the reconstructed state is wrong — fail loudly rather than reporting the result.
 

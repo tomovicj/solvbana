@@ -2,7 +2,7 @@
 
 **Point it at a failed Solana transaction. It tells you which line of your program failed, and why.**
 
-> **Status: early development.** The architecture is settled; implementation is in progress. Phases 0, 1, 2 and 4 are done: a signature resolves to a typed structure naming the failing instruction, its logs are read for everything they disclose on their own, the failing program is resolved — proving whether the deployed binary is the one that ran, reading its IDL, and checking its hash against a verified-build registry — and the failure is then explained from the transaction record and that IDL. Against the 45-signature test corpus that lands 7 `exact`, 32 `variant-only`, and 6 `unknown`. **Phase 3 (source fetching and throw-site indexing) is deferred**: only 3 of the corpus's 24 live programs have a verified build, so there is almost no source to index. Source rendering in the example below is not implemented. See [ROADMAP.md](./ROADMAP.md) for what exists and what doesn't.
+> **Status: early development.** The architecture is settled; implementation is in progress. Phases 0, 1, 2 and 4 are done: a signature resolves to a typed structure naming the failing instruction, its logs are read for everything they disclose, the failing program is resolved — proving whether the deployed binary is the one that ran, reading its IDL, and checking its hash against a verified-build registry — and the failure is then explained from the transaction record and that IDL. You can also **upload your own IDL and compiled binary** for programs that publish neither. Against the 45-signature test corpus that lands 7 `exact`, 32 `variant-only`, and 6 `unknown`; against a sample of live mainnet failures, 77.5% land at `unknown`, and `pnpm coverage` reports that honestly. **Source fetching and throw-site indexing are deferred** — only 3 of the corpus's 24 live programs have a verified build, so there is almost no source to index — and source rendering in the example below is not implemented. See [ROADMAP.md](./ROADMAP.md) for what exists and what doesn't.
 
 ---
 
@@ -76,6 +76,31 @@ Every result carries an explicit confidence level:
 A debugger that is confidently wrong once is a debugger you stop trusting. The tool would rather return three candidates than one guess.
 
 It also declines guesses that would be easy to make. Anchor reserves error codes 2000–2999 for constraints, so a bare `Custom(2012)` looks a lot like `ConstraintAddress` — but that range is one framework's convention, and any program may return any code for any reason. The tool will name it once it has fetched an IDL from the program's Anchor-derived address, because only an Anchor program publishes one there and that is real evidence. Until then it reports the number and says why it will not name it.
+
+## When your program publishes nothing
+
+Most programs don't. Sampling live mainnet failures, **62% are a bare `Custom(n)` from a program with no on-chain IDL** — no name, no `#[msg]` text, nothing but a number. No amount of inference fixes that: the program simply never said what its codes mean.
+
+You can say it instead. Point the server at a directory and upload what `anchor build` already produced:
+
+```
+SOLVBANA_ARTIFACT_DIR=./artifacts pnpm dev
+
+curl -X POST localhost:3000/artifacts -H 'content-type: application/json' \
+  -d "{\"idl\": $(cat target/idl/my_program.json)}"
+```
+
+After that, every diagnosis of that program names its error codes. Uploading the compiled `.so` as well answers a different question immediately — whether the build in front of you is the one actually deployed:
+
+```json
+{ "binary": { "hash": "38c6d0f7…", "deployed": { "kind": "match" } } }
+```
+
+An uploaded IDL is held to a lower trust than one read from chain, and the output says which you got:
+
+- It has to **prove it describes the program that ran**, by declaring the discriminator the failing instruction actually used. A document that doesn't match is refused and says so — it's for a different program, or a different version of one.
+- It **never unlocks Anchor's built-in error table**. That shortcut is licensed by an IDL existing at the program's Anchor-derived address, which only an Anchor program can publish; a file you sent proves nothing of the kind.
+- Names that come from it are reported as `supplied-idl`, never `idl`, because you should be able to tell your own claim from something read off chain.
 
 ## Correctness guarantees
 

@@ -21,7 +21,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "coverage": "node --conditions=development --env-file-if-exists=.env scripts/coverage.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

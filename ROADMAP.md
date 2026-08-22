@@ -93,7 +93,8 @@ That leaves **4 of 45 transactions** failing in a verified program, and none of 
 The blocker is that verified builds are rare, not that static analysis is hard. The realistic unlock is a **local source path** — a developer debugging their own program has the tree checked out — which also subsumes the local-IDL item deferred out of Phase 2. Confidence would cap below `exact` for anything derived from such a tree, since it is not hash-proven against the deployed binary.
 
 - [x] Parse instruction data: first 8 bytes → discriminator → handler name (via IDL). Done in Phase 2 — Anchor programs log their handler name and Phase 1 reads it, and the discriminator covers the ones that do not
-- [ ] Accept a local source tree and a local IDL, cross-checked against the on-chain IDL and the observed discriminators
+- [x] Accept an uploaded IDL and program binary, cross-checked against the observed discriminators and the deployed binary's hash. `POST /artifacts` into a content-addressed store behind an `ArtifactStore` port; the IDL is read during diagnosis, the binary's verdict is settled at upload
+- [ ] Accept a local *source tree*, once there is a proven binary to map it against
 - [ ] Fetch and cache the source tree at the verified commit Phase 2 resolved
 - [ ] Static analysis pass over the resolved source: index every `require!`, `require_eq!`, `require_keys_eq!`, `err!`, `return Err(...)` with file, line, and the error variant it raises
 - [ ] Call graph from handler entry points; reachability filter to drop throw sites the failing handler can't reach
@@ -103,6 +104,22 @@ The blocker is that verified builds are rare, not that static analysis is hard. 
 - [ ] Report the full candidate set when more than one survives — never present a guess as certainty
 - [ ] Regression check: on the fixture corpus, measure how often the correct site is (a) uniquely identified, (b) in the top 3
 - [ ] Before any of the above: harvest fixtures that can measure it. The corpus contains no `ConstraintSeeds` or `ConstraintHasOne` failure at all, so seed-derivation work currently has nothing to score against
+
+### What the artifact path reaches
+
+`pnpm coverage` over 200 live failures, sampled at most 6 per block across 34 blocks so no single busy block dominates:
+
+| | |
+| --- | --- |
+| `unknown` | 77.5% |
+| `variant-only` | 17.0% |
+| `exact` | 5.5% |
+| **blocked: program publishes no IDL and none was uploaded** | **62.0%** |
+| blocked: no failing program identified | 15.5% |
+
+That 62% is the whole case for the artifact path: it is not a gap inference could close, it is programs declining to say what their error codes mean. An upload closes it for one program at a time, which is exactly the developer-debugging-their-own-program case the README describes.
+
+The corpus reads 13% `unknown` against this 77.5%. Both numbers are correct and they measure different things — the corpus is one hand-checked instance of each failure shape, not a sample of traffic. Keep them apart.
 
 **Done when:** a `Custom(6001)` failure resolves to one or two `require!` sites in the correct handler, with the source excerpt shown.
 
@@ -166,12 +183,12 @@ Exact answers for what inference can't resolve. Expensive; this phase largely de
 
 ## Phase 6 — Productization
 
-- [ ] Handle truncated logs gracefully — flag reduced confidence, explain why breadcrumbs are missing, suggest reducing `msg!` volume in hot paths
+- [x] Handle truncated logs gracefully — implemented in Phase 0 and reported as a degradation. Measured at **0 of 6,895** sampled mainnet failures, so it is a real code path with no real traffic behind it. Do not invest further without a reason to
 - [ ] Caching: resolved binaries, source trees, IDLs, static analysis indexes — all immutable by commit hash
 - [ ] Rate limiting and RPC cost control; batch signature submission
 - [ ] Simulation mode for pre-flight debugging, with a prominent warning that simulation runs against *current* state and will not reproduce historical state-dependent failures
 - [ ] API for CI integration — fail a build when a test transaction errors, with the diagnosis inline
-- [ ] Coverage metrics: what fraction of real mainnet failures land in each confidence bucket
+- [x] Coverage metrics: `pnpm coverage` samples live failures, runs the full engine over each, and reports the distribution and what blocked every unnamed one
 - [ ] Guidance doc for contract authors on making programs debuggable (`#[error_code]` with real messages, `require_eq!` over bare `require!`, `overflow-checks = true`, sparing logs)
 
 ---
