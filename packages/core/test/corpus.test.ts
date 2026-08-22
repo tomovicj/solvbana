@@ -267,7 +267,7 @@ describe('mainnet corpus', () => {
 
     expect(buckets.get('exact') ?? 0).toBeGreaterThanOrEqual(7);
     expect((buckets.get('exact') ?? 0) + (buckets.get('variant-only') ?? 0)).toBeGreaterThanOrEqual(
-      37,
+      39,
     );
     // `narrowed` means a candidate set was reduced by inference, which is Phase 3.
     expect(buckets.get('narrowed') ?? 0).toBe(0);

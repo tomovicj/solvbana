@@ -72,7 +72,7 @@ Connecting an on-chain program to the code that produced it. Correctness-critica
 
 **Done when:** for a verified program, the tool can produce the exact source tree that was running at the failing slot — and refuses to guess when it can't.
 
-The corpus reaches **7 `exact` / 32 `variant-only` / 6 `unknown`** with resolution applied. Only two fixtures moved, and that is the honest ceiling: the remaining six undecoded programs publish no on-chain IDL, or have had their ProgramData closed. The phase's output is the resolution layer Phase 3 depends on, not the confidence delta.
+The corpus reaches **7 `exact` / 34 `variant-only` / 6 `unknown`** with resolution applied. Only two fixtures moved, and that is the honest ceiling: the remaining six undecoded programs publish no on-chain IDL, or have had their ProgramData closed. The phase's output is the resolution layer Phase 3 depends on, not the confidence delta.
 
 Note the corpus systematically under-represents the degrade paths. Harvested fixtures are always recent, so every real program in it still runs the binary that ran; `upgraded-since` exists only as a synthetic fixture, and must stay one.
 
@@ -90,7 +90,7 @@ Turning an error variant into a small set of candidate throw sites.
 
 **Deferred after measurement.** The phase rests on fetching the source tree at the verified commit Phase 2 resolves, and the corpus says that tree is almost never available. Of the 24 live corpus programs, **3** have a verified build whose hash matches the deployed binary — SPL Token, GODL and Oridion. Five have registry entries where none is verified, and fifteen have no entry at all.
 
-That leaves **4 of 45 transactions** failing in a verified program, and none of the four is a case this phase would answer. Two are SPL Token, which is not Anchor and has no `require!` grammar to index, and whose errors the pinned native table already names. One is GODL, already `exact` from a panic. One is Oridion's `AccountNotInitialized`, an Anchor accounts-struct error that a throw-site index would not find. Building the phase as written would move zero fixtures and its own regression metrics could not be computed.
+That leaves **4 of 47 transactions** failing in a verified program, and none of the four is a case this phase would answer. Two are SPL Token, which is not Anchor and has no `require!` grammar to index, and whose errors the pinned native table already names. One is GODL, already `exact` from a panic. One is Oridion's `AccountNotInitialized`, an Anchor accounts-struct error that a throw-site index would not find. Building the phase as written would move zero fixtures and its own regression metrics could not be computed.
 
 The blocker is that verified builds are rare, not that static analysis is hard. The realistic unlock is a **local source path** — a developer debugging their own program has the tree checked out — which also subsumes the local-IDL item deferred out of Phase 2. Confidence would cap below `exact` for anything derived from such a tree, since it is not hash-proven against the deployed binary.
 
@@ -105,7 +105,7 @@ The blocker is that verified builds are rare, not that static analysis is hard. 
 - [ ] Combine all filters; rank surviving candidates
 - [ ] Report the full candidate set when more than one survives — never present a guess as certainty
 - [ ] Regression check: on the fixture corpus, measure how often the correct site is (a) uniquely identified, (b) in the top 3
-- [ ] Before any of the above: harvest fixtures that can measure it. The corpus contains no `ConstraintSeeds` or `ConstraintHasOne` failure at all, so seed-derivation work currently has nothing to score against
+- [x] Before any of the above: harvest fixtures that can measure it. Two `ConstraintSeeds` failures are now in the corpus, found by matching the `Error Code:` line the program printed about itself rather than Anchor's reserved code range — `harvest.ts --want <Name>` does this, and filtering on the range would have been the same guess the engine refuses. `ConstraintHasOne` did not occur in the same 300-block scan and remains unrepresented
 
 ### What the artifact path reaches
 
@@ -151,9 +151,11 @@ Built **from the transaction record and the program's published IDL**, with no s
 
 ### What the corpus shows
 
-Compute is attributed for all 45 fixtures, an account table is built for 38, names are attached for 19, arguments decode for 20, and 19 carry a concrete suggested fix. 37 IDL-declared PDA derivations reproduce the address that was passed and none contradicts one.
+Compute is attributed for all 47 fixtures, an account table is built for 40, names are attached for 21, arguments decode for 22, and 19 carry a concrete suggested fix. 49 IDL-declared PDA derivations reproduce the address that was passed and none contradicts one; 9 more refuse because a seed component could not be resolved from the record.
 
-The headline item nearly shipped wrong. **None of the 9 fixtures with a named offending account has IDL-declared seeds for that account** — five are missing associated token accounts, whose derivation belongs to the Associated Token program rather than to the failing program. Recomputing PDAs from declared seeds alone would have run on twelve fixtures and never once on the account that actually failed.
+The headline item nearly shipped wrong. When Phase 4 was built, **none of the 9 fixtures with a named offending account had IDL-declared seeds for that account** — five are missing associated token accounts, whose derivation belongs to the Associated Token program rather than to the failing program. Recomputing PDAs from declared seeds alone would have run on twelve fixtures and never once on the account that actually failed, which is why the pinned associated-token derivation was built alongside it.
+
+The two harvested `ConstraintSeeds` fixtures are the first where the blamed account does declare seeds, and they are worth reading as the honest outcome rather than the happy one. PumpSwap's `coin_creator_vault_authority` derives from `[b"creator_vault", pool.coin_creator]`. The literal resolves; `pool.coin_creator` reads a field out of another account's data, which exists only as current state, so the check reports `unresolved` and names the component that blocked it. Two of 11 blamed accounts have declared seeds and **neither can be recomputed** — the seeds that matter are the ones that reach outside the transaction. What the reader still gets is the error name, the blamed field, and the two operands Anchor logged.
 
 Two rules came out of building it:
 

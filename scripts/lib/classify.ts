@@ -106,6 +106,27 @@ export function failingProgramId(logs: readonly string[]): string | null {
 }
 
 /**
+ * The Anchor error name the program printed about itself, if it printed one.
+ *
+ * This is the only legitimate way to target a specific Anchor variant while
+ * harvesting. {@link classify} buckets by Anchor's reserved code ranges, which
+ * is a fine heuristic for spreading a corpus across categories but cannot tell
+ * `ConstraintSeeds` from `ConstraintAddress` — and reading a name out of a range
+ * is precisely the guess the engine refuses to make.
+ *
+ * An `Error Code:` line is different in kind: the running program emitted it, so
+ * the name is the program's own statement rather than an inference about it.
+ * Filtering a harvest on it is reading, not guessing.
+ */
+export function loggedAnchorErrorName(logs: readonly string[]): string | null {
+  for (const line of logs) {
+    const match = /Error Code: (\S+?)\. Error Number: \d+\./.exec(line);
+    if (match) return match[1]!;
+  }
+  return null;
+}
+
+/**
  * A key identifying "the same kind of failure", used to keep the corpus diverse.
  *
  * Left unchecked a harvest fills up with whichever error the busiest program on
