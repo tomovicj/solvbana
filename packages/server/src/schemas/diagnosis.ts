@@ -174,6 +174,7 @@ const DecodedErrorSchema = Type.Object({
     Type.Literal('native-table'),
     Type.Literal('runtime-variant'),
     Type.Literal('idl'),
+    Type.Literal('supplied-idl'),
     Type.Literal('anchor-builtin'),
     Type.Literal('none'),
   ]),
@@ -276,6 +277,7 @@ const ResolutionSchema = Type.Object({
   idl: Type.Union([
     Type.Object({
       address: Type.String(),
+      provenance: Type.Union([Type.Literal('on-chain'), Type.Literal('supplied')]),
       programName: Type.String(),
       spec: NullableString,
       declaredErrors: Type.Integer(),

@@ -85,8 +85,24 @@ export interface IdlHandler {
   args: IdlArg[];
 }
 
+/**
+ * Where an IDL came from, and therefore what it is evidence of.
+ *
+ * This is not bookkeeping. An IDL read from the program's Anchor-derived address
+ * is a fact about chain state: only an Anchor program publishes one there, which
+ * is the whole licence for reading Anchor's built-in error table against that
+ * program. A document somebody uploaded proves nothing of the kind — anyone can
+ * write JSON — so the two cannot be allowed to unlock the same conclusions.
+ *
+ * Carrying the provenance on the IDL itself, rather than tracking it alongside,
+ * is what makes the distinction impossible to drop at a call site.
+ */
+export type IdlProvenance = 'on-chain' | 'supplied';
+
 export interface ResolvedIdl {
+  /** The account it was read from, or the program it was supplied for. */
   address: string;
+  provenance: IdlProvenance;
   programName: string;
   /**
    * `metadata.spec` for Anchor 0.30 and later; `null` for the earlier layout.
@@ -262,7 +278,11 @@ function parseHandlers(raw: unknown): IdlHandler[] {
  * top-level `name`) and in whether instructions carry discriminators. `errors[]`
  * is `{ code, name, msg }` in both, which is the part this tier most needs.
  */
-export function parseIdlDocument(document: unknown, address: string): ResolvedIdl | null {
+export function parseIdlDocument(
+  document: unknown,
+  address: string,
+  provenance: IdlProvenance = 'on-chain',
+): ResolvedIdl | null {
   const root = asRecord(document);
   if (root === null) return null;
 
@@ -272,6 +292,7 @@ export function parseIdlDocument(document: unknown, address: string): ResolvedId
 
   return {
     address,
+    provenance,
     programName,
     spec: asString(metadata?.['spec']),
     errors: parseErrors(root['errors']),

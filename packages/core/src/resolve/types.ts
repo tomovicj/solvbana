@@ -1,9 +1,15 @@
 import type { Deployment } from './deployment.ts';
+import type { IdlProvenance } from './idl.ts';
 import type { VerificationOutcome } from './verified.ts';
 
 /** What was learned about the program's published interface. */
 export interface IdlSummary {
   address: string;
+  /**
+   * Whether this came from the program's own Anchor-derived address or from an
+   * upload. The two license different conclusions and must not read alike.
+   */
+  provenance: IdlProvenance;
   programName: string;
   /** `null` for the pre-0.30 layout, which carries no `metadata.spec`. */
   spec: string | null;

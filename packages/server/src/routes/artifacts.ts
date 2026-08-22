@@ -1,6 +1,7 @@
 import {
   currentDeployment,
   elfHash,
+  forgetProgram,
   parseAddress,
   parseIdlDocument,
   type AccountSource,
@@ -147,6 +148,11 @@ export function registerArtifactRoutes(
           deployed: await compareWithChain(programId, stored.hash, accounts),
         };
       }
+
+      // A cached resolution for this program was computed without whatever just
+      // arrived, and nothing in its key reflects the store's contents. Without
+      // this the first diagnosis after an upload answers from before it.
+      forgetProgram(programId);
 
       return { programId, idl, binary, notes };
     },

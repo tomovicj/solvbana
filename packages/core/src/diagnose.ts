@@ -10,7 +10,9 @@ import type { ResolvedIdl } from './resolve/idl.ts';
 import { refineWithResolution } from './resolve/refine.ts';
 import { resolveProgram, type ResolveOptions } from './resolve/resolve.ts';
 import { explainNotFound } from './rpc/client.ts';
-import type { AccountSource, TransactionSource } from './rpc/source.ts';
+import type { AccountSource, ArtifactStore, TransactionSource } from './rpc/source.ts';
+import { walkInstructions } from './ingest/instructions.ts';
+import { decodeBase58 } from './signature.ts';
 
 export interface DiagnoseDeps {
   source: TransactionSource;
@@ -22,7 +24,36 @@ export interface DiagnoseDeps {
    * which is the same contract every other missing input has here.
    */
   accounts?: AccountSource | undefined;
+  /**
+   * Uploaded IDLs, for the programs that publish none of their own.
+   *
+   * Optional like every other input here: without it a diagnosis is whatever
+   * chain state alone establishes, which for roughly 94% of failing programs
+   * means an error code that stays a number.
+   */
+  artifacts?: ArtifactStore | undefined;
   resolve?: ResolveOptions | undefined;
+}
+
+/**
+ * The discriminators this transaction actually used against a program.
+ *
+ * An uploaded IDL has to match one of these before anything is read from it, so
+ * this is the evidence that turns a file somebody sent into a document about
+ * this program. Collected across every instruction addressed to it, because the
+ * failing one may be reached by CPI.
+ */
+function observedDiscriminators(transaction: FailedTransaction, programId: string): string[] {
+  const seen = new Set<string>();
+
+  for (const node of walkInstructions(transaction.instructions)) {
+    if (node.programId !== programId) continue;
+    const data = decodeBase58(node.data);
+    if (data === null || data.length < 8) continue;
+    seen.add(Buffer.from(data.subarray(0, 8)).toString('hex'));
+  }
+
+  return [...seen];
 }
 
 /**
@@ -50,7 +81,12 @@ async function withResolution(
   if (accounts === undefined || programId === null) return { analysis, idl: null };
 
   try {
-    const resolved = await resolveProgram(programId, transaction.slot, { accounts }, deps.resolve);
+    const resolved = await resolveProgram(
+      programId,
+      transaction.slot,
+      { accounts, artifacts: deps.artifacts },
+      { ...deps.resolve, observedDiscriminators: observedDiscriminators(transaction, programId) },
+    );
     return { analysis: refineWithResolution(analysis, transaction, resolved), idl: resolved.idl };
   } catch (error) {
     // Resolution is an enrichment. A failure here must not lose the log-derived

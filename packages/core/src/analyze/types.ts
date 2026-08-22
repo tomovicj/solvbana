@@ -23,6 +23,16 @@ export type ErrorNaming =
   /** Declared in the program's own on-chain IDL, under `errors[]`. */
   | 'idl'
   /**
+   * Declared in an IDL somebody uploaded for this program.
+   *
+   * Kept apart from `idl` because the reader needs to know a name came from a
+   * file rather than from chain. The document earns its use by matching the
+   * failing instruction's discriminator, which establishes that it describes the
+   * program that ran — but the error table inside it is still only asserted,
+   * exactly as a stale on-chain IDL's is.
+   */
+  | 'supplied-idl'
+  /**
    * Anchor's built-in error table.
    *
    * Legitimate only because an IDL was found at this program's Anchor-derived

@@ -45,10 +45,20 @@ function handlerByDiscriminator(
  * Anchor, and the IDL's existence is what establishes that Anchor's meanings
  * apply to this program at all.
  */
-function nameError(code: number, idl: ResolvedIdl): DecodedError | null {
+/** A decoded error that definitely carries a name — this only returns when it found one. */
+type NamedError = DecodedError & { name: string };
+
+function nameError(code: number, idl: ResolvedIdl): NamedError | null {
   const declared = idl.errors.get(code);
   if (declared !== undefined) {
-    return { code, name: declared.name, message: declared.msg, naming: 'idl' };
+    // The document says what this code means either way; where the document came
+    // from is what the reader needs alongside the name.
+    return {
+      code,
+      name: declared.name,
+      message: declared.msg,
+      naming: idl.provenance === 'supplied' ? 'supplied-idl' : 'idl',
+    };
   }
 
   const builtin = anchorBuiltinFor(code, idl);
@@ -67,7 +77,38 @@ function nameError(code: number, idl: ResolvedIdl): DecodedError | null {
   return null;
 }
 
+/** Where a name came from, said plainly, because that is what it is worth. */
+function explainNaming(
+  code: number,
+  name: string,
+  naming: DecodedError['naming'],
+  programName: string,
+): string {
+  if (naming === 'supplied-idl') {
+    return (
+      `Code ${String(code)} is declared as ${name} in an IDL uploaded for this program ` +
+      `(${programName}), which matched the failing instruction's discriminator. The name is the ` +
+      'uploaded document\u2019s claim about the program, not something read from chain.'
+    );
+  }
+  if (naming === 'idl') {
+    return `Code ${String(code)} is declared as ${name} in the IDL ${programName} publishes on chain.`;
+  }
+  return (
+    `Code ${String(code)} is Anchor's built-in ${name}. The program publishes an IDL at its ` +
+    'Anchor-derived address, which is what establishes that Anchor defines this code rather ' +
+    'than the program itself.'
+  );
+}
+
 function explainMiss(code: number, idl: ResolvedIdl): string {
+  if (idl.provenance === 'supplied') {
+    return (
+      `Code ${String(code)} is not declared in the IDL uploaded for this program ` +
+      `(${idl.programName}), and an uploaded IDL cannot license Anchor's built-in table the way ` +
+      'one published on chain does. The code stays a number.'
+    );
+  }
   return isAnchorReservedCode(code)
     ? `Code ${String(code)} falls in a range Anchor reserves, but it is not a variant this ` +
         `version of the table knows and ${idl.programName} does not declare it either.`
@@ -123,14 +164,7 @@ export function refineWithResolution(
       // Naming an error is not locating it: this lifts an undecoded answer to
       // `variant-only` and never touches one that already reads stronger.
       if (analysis.confidence === 'unknown') confidence = 'variant-only';
-      reasons.unshift(
-        named.naming === 'idl'
-          ? `Code ${String(code)} is declared as ${named.name} in the IDL ${idl.programName} ` +
-              'publishes on chain.'
-          : `Code ${String(code)} is Anchor's built-in ${named.name}. The program publishes an ` +
-              'IDL at its Anchor-derived address, which is what establishes that Anchor defines ' +
-              'this code rather than the program itself.',
-      );
+      reasons.unshift(explainNaming(code, named.name, named.naming, idl.programName));
     }
   }
 

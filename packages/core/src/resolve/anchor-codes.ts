@@ -158,6 +158,13 @@ export function anchorBuiltinFor(code: number, idl: ResolvedIdl): AnchorBuiltin 
   // own declaration wins: the IDL came from this deployment, while the table is
   // generic to the framework. Yielding here keeps that true no matter which
   // order a caller consults the two in.
+  // An uploaded document is not evidence the program is Anchor. The licence for
+  // this table is that only an Anchor program publishes an IDL at its
+  // Anchor-derived address, and that is a fact about chain state — anyone can
+  // write JSON. A supplied IDL may still name codes it declares itself; it may
+  // not lend Anchor's conventions to codes it does not.
+  if (idl.provenance !== 'on-chain') return null;
+
   if (idl.errors.has(code)) return null;
 
   const name = ANCHOR_ERROR_CODES[code];

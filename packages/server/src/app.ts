@@ -101,7 +101,7 @@ export function buildApp(config: AppConfig, options: BuildAppOptions = {}) {
 
   registerHealthRoutes(app);
   registerArtifactRoutes(app, artifacts, accounts);
-  registerDiagnoseRoutes(app, source, accounts, {
+  registerDiagnoseRoutes(app, source, accounts, artifacts, {
     registryUrl: config.SOLVBANA_VERIFY_REGISTRY_URL,
     verifySource: true,
   });

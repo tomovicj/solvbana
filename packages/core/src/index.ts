@@ -109,11 +109,14 @@ export {
   type IdlErrorEntry,
   type IdlHandler,
   type IdlOutcome,
+  type IdlProvenance,
   type IdlSeed,
   type ResolvedIdl,
 } from './resolve/idl.ts';
 
 export { elfHash } from './resolve/hash.ts';
+
+export { describeSuppliedIdl, suppliedIdl, type SuppliedIdlOutcome } from './resolve/local.ts';
 
 export { refineWithResolution } from './resolve/refine.ts';
 
@@ -150,6 +153,7 @@ export type {
 
 export {
   clearResolutionCache,
+  forgetProgram,
   resolveProgram,
   type ResolveDeps,
   type ResolveOptions,
