@@ -1,0 +1,85 @@
+{
+  "transaction": {
+    "signatures": [
+      "5mCq2qnx2zsp1HMzqPZQrBP7r5fYLRuTU3uRQ5MauBnEoxW8CvgzRnotsTaXvoyGwdrNKvDh8oRThQcVUK57E81e"
+    ],
+    "message": {
+      "header": {
+        "numRequiredSignatures": 1,
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2
+      },
+      "accountKeys": [
+        "FreshKmsfusxPdXrYG3GTjYPaSRbULNYKHcdaApPSoXM",
+        "ChEFLWkpSmyBiSKsp69e9XpcLWnywiwJb5ra7whxHWXz",
+        "ComputeBudget111111111111111111111111111111",
+        "HDwcJBJXjL9FpJ7UBsYBtaDjsBUhuLCUYoz3zr8SWWaQ"
+      ],
+      "recentBlockhash": "Ag7yMmGgnEBoXPYQu3S14WE1gaKSWQY9p7yKRfkDGthK",
+      "instructions": [
+        {
+          "programIdIndex": 2,
+          "accounts": [],
+          "data": "3cDeqiGMb6md",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 3,
+          "accounts": [0, 1],
+          "data": "9B4Xu47VLuK",
+          "stackHeight": 1
+        }
+      ]
+    }
+  },
+  "meta": {
+    "err": {
+      "InstructionError": [
+        1,
+        {
+          "Custom": 2004
+        }
+      ]
+    },
+    "status": {
+      "Err": {
+        "InstructionError": [
+          1,
+          {
+            "Custom": 2004
+          }
+        ]
+      }
+    },
+    "fee": 6015,
+    "preBalances": [2006971538, 0, 1, 1141440],
+    "postBalances": [2006965523, 0, 1, 1141440],
+    "innerInstructions": [],
+    "logMessages": [
+      "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "Program ComputeBudget111111111111111111111111111111 success",
+      "Program HDwcJBJXjL9FpJ7UBsYBtaDjsBUhuLCUYoz3zr8SWWaQ invoke [1]",
+      "Program log: Instruction: CloseEncodedVaa",
+      "Program log: AnchorError caused by account: encoded_vaa. Error Code: ConstraintOwner. Error Number: 2004. Error Message: An owner constraint was violated.",
+      "Program log: Left:",
+      "Program log: 11111111111111111111111111111111",
+      "Program log: Right:",
+      "Program log: HDwcJBJXjL9FpJ7UBsYBtaDjsBUhuLCUYoz3zr8SWWaQ",
+      "Program HDwcJBJXjL9FpJ7UBsYBtaDjsBUhuLCUYoz3zr8SWWaQ consumed 4902 of 202850 compute units",
+      "Program HDwcJBJXjL9FpJ7UBsYBtaDjsBUhuLCUYoz3zr8SWWaQ failed: custom program error: 0x7d4"
+    ],
+    "preTokenBalances": [],
+    "postTokenBalances": [],
+    "rewards": [],
+    "loadedAddresses": {
+      "writable": [],
+      "readonly": []
+    },
+    "computeUnitsConsumed": 5052,
+    "costUnits": 6712
+  },
+  "version": "legacy",
+  "slot": 439419632,
+  "transactionIndex": 156,
+  "blockTime": 1786791046
+}

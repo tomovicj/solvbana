@@ -1,0 +1,71 @@
+{
+  "transaction": {
+    "signatures": [
+      "29idsuwgUbxrhf7QsYbobic7tEvCyN6exwAV6jXdF3RtLafiWZYwGBbJ9Q7DsWaHxmZxjtGof8aJoAKpzNtQzKst"
+    ],
+    "message": {
+      "header": {
+        "numRequiredSignatures": 1,
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2
+      },
+      "accountKeys": [
+        "9uHphoGiwR3kvwAMr7SfCQWH5Pe3nADW19rjeeMh9pYM",
+        "8XUDJCCj2xVCjsBbKkZ9oieZLnhnAGKC5em1ciMWfgB6",
+        "ComputeBudget111111111111111111111111111111",
+        "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+      ],
+      "recentBlockhash": "fXvB4gQcaZfuWD1sNnwZG29BHcekzpudrdb144k3yhS",
+      "instructions": [
+        {
+          "programIdIndex": 2,
+          "accounts": [],
+          "data": "EW1ZaP",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 3,
+          "accounts": [1, 0, 0],
+          "data": "A",
+          "stackHeight": 1
+        }
+      ],
+      "addressTableLookups": []
+    }
+  },
+  "meta": {
+    "err": {
+      "InstructionError": [1, "InvalidAccountData"]
+    },
+    "status": {
+      "Err": {
+        "InstructionError": [1, "InvalidAccountData"]
+      }
+    },
+    "fee": 5000,
+    "preBalances": [6201924813, 0, 1, 192795783],
+    "postBalances": [6201919813, 0, 1, 192795783],
+    "innerInstructions": [],
+    "logMessages": [
+      "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "Program ComputeBudget111111111111111111111111111111 success",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [1]",
+      "Program log: Error: InvalidAccountData",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 188 of 9850 compute units",
+      "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA failed: invalid account data for instruction"
+    ],
+    "preTokenBalances": [],
+    "postTokenBalances": [],
+    "rewards": [],
+    "loadedAddresses": {
+      "writable": [],
+      "readonly": []
+    },
+    "computeUnitsConsumed": 338,
+    "costUnits": 1691
+  },
+  "version": 0,
+  "slot": 439419613,
+  "transactionIndex": 851,
+  "blockTime": 1786791039
+}

@@ -1,0 +1,75 @@
+{
+  "transaction": {
+    "signatures": [
+      "5mwPfK222WJ3aeksomKLmfZ8FBXBEixje4GqHLZzFQauqxYBBxDZLg77Aw6TyMiKP5k3Qsqc4V4ttGmrS3Z4FdxX"
+    ],
+    "message": {
+      "header": {
+        "numRequiredSignatures": 1,
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2
+      },
+      "accountKeys": [
+        "upDaYdqrFNYkLTyErXt8sspNprf7KPZozsQ8Cm4tMdG",
+        "FK7Xk7CYsn77qtseyAvUNmpLWou1BwQdsdqkBsjus9ap",
+        "ComputeBudget111111111111111111111111111111",
+        "W1LDCARDa67SPBG7TFpQivHnEZXRtxCFP13ysEd1bWR"
+      ],
+      "recentBlockhash": "4t7nEHfFBM7YJrEMof21TCDZzp4yx2m6FH9Y8vcUWTWT",
+      "instructions": [
+        {
+          "programIdIndex": 2,
+          "accounts": [],
+          "data": "3QCwqmHZ4mdq",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 2,
+          "accounts": [],
+          "data": "JQcZuq",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 3,
+          "accounts": [1, 0],
+          "data": "111111115hqUTMhW7VDcqXEvPj67m5QxJs5jxx4sDdJdQN2GNvTH",
+          "stackHeight": 1
+        }
+      ],
+      "addressTableLookups": []
+    }
+  },
+  "meta": {
+    "err": {
+      "InstructionError": [1, "ComputationalBudgetExceeded"]
+    },
+    "status": {
+      "Err": {
+        "InstructionError": [1, "ComputationalBudgetExceeded"]
+      }
+    },
+    "fee": 5169,
+    "preBalances": [566799142, 1781760, 1, 1141440],
+    "postBalances": [566793973, 1781760, 1, 1141440],
+    "innerInstructions": [],
+    "logMessages": [
+      "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "Program ComputeBudget111111111111111111111111111111 success",
+      "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "Program ComputeBudget111111111111111111111111111111 failed: Computational budget exceeded"
+    ],
+    "preTokenBalances": [],
+    "postTokenBalances": [],
+    "rewards": [],
+    "loadedAddresses": {
+      "writable": [],
+      "readonly": []
+    },
+    "computeUnitsConsumed": 169,
+    "costUnits": 1510
+  },
+  "version": 0,
+  "slot": 439419668,
+  "transactionIndex": 88,
+  "blockTime": 1786791061
+}

@@ -1,0 +1,14 @@
+{
+  "programId": "8bCAJCqHNVaraR2EMHzoXc9jDFGeax2rF56N2vHWEceT",
+  "readAtSlot": 439651977,
+  "program": {
+    "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+    "executable": true,
+    "data": "AgAAAJcKKCLEPgYkJW6XMLd1Z2/0xC/wV/XOOclsyHpcn5oi",
+    "size": 36
+  },
+  "programDataHeader": null,
+  "idl": null,
+  "executableHash": null,
+  "trimmedElfLength": null
+}

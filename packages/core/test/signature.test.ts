@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeBase58, parseSignature } from '@solvbana/core';
+import { decodeBase58, parseAddress, parseSignature } from '@solvbana/core';
 
 /** A real mainnet signature, used only as a well-formed 64-byte input. */
 const VALID =
@@ -42,5 +42,30 @@ describe('parseSignature', () => {
     // Well-formed base58, wrong length: this is a pubkey (32 bytes), not a signature.
     const pubkey = 'So11111111111111111111111111111111111111112';
     expect(parseSignature(pubkey)).toMatchObject({ ok: false, code: 'bad-length' });
+  });
+});
+
+describe('parseAddress', () => {
+  const PROGRAM = 'pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA';
+
+  it('accepts a real program address and trims it', () => {
+    expect(parseAddress(`  ${PROGRAM}  `)).toEqual({ ok: true, address: PROGRAM });
+  });
+
+  it('rejects anything that is not 32 bytes', () => {
+    // A signature is 64 bytes and looks address-shaped at a glance, which is
+    // exactly the confusion a length check on characters would miss.
+    const signature = '2jRZKrmUXWHbV4VVBPGo'.repeat(4);
+    expect(parseAddress(signature).ok).toBe(false);
+    expect(parseAddress('').ok).toBe(false);
+  });
+
+  it('rejects a path rather than letting it become a filename', () => {
+    // This is the property the artifact store depends on: an address that
+    // decodes to 32 base58 bytes cannot contain `/` or `.`, because the
+    // alphabet excludes both.
+    for (const attempt of ['../../etc/passwd', 'a/b', './x', '..']) {
+      expect(parseAddress(attempt).ok, attempt).toBe(false);
+    }
   });
 });

@@ -1,0 +1,92 @@
+{
+  "transaction": {
+    "signatures": [
+      "57o9VfRqzwFBSvikB7RxrcaDNthgJSXb5uA3w7V275RgB3YduYNkDdST8dSSCCAAxV1tm3YkW6uBfTSnEguuyX5m",
+      "5k9wdw5AKkeB6keLJjSnZ8Qz6xn6hRmtAGhGH8b1GYDWa4rTWwVyTTrscpt1J1KhbvQVBcy3tiDptWBKmACmquwS",
+      "54zYwNCHN2mHCSfKTL6zDevkQaKWLMYL4iFnMc3cfN1TFFm4BxMDYRwGCJ1M4M9H4s1iqWBoBSNUCwW2s7tEVkVH",
+      "38aZ8qNC2ntwgocEnjiHAumkKvwrsNWK5FKquGkREgsJfngGbN8ZEQXNMTry1nERTkTy26QHLwMHgGPEoYsrThrq",
+      "2rWhK5phHTqQU7Y3qDQtkqqKvKDAV5iAPDWgPGPXnhGrJf4uu3LypzWhLJfkYdyGCC4255Zg5MJA8vtUwXnsLqRU"
+    ],
+    "message": {
+      "header": {
+        "numRequiredSignatures": 5,
+        "numReadonlySignedAccounts": 4,
+        "numReadonlyUnsignedAccounts": 1
+      },
+      "accountKeys": [
+        "FjbgzgwjfBrVdoJavkJoBezFLToNXwkSiFBVembeibcY",
+        "ESVY6bvzxzZbXCtraJADeXuB127deJgPtbsEj2tZSpZV",
+        "DxHJzLBnsi2LbG1Uq4kinpEozrDBu7Vhqxhma1sTvyki",
+        "Gs7oAj8TQYzTwfAqbLJE6QRRpknQmBgeZAVem8VyA7En",
+        "5SAQVqmFRbMjmf4jxRPK7F2YmVkCyE1WKASyhFb3Vm9a",
+        "9BBKbnfRkFNKJ9dJCzMmcUHE9JinmsQJzmqLDr5U25xa",
+        "5HbMqyYj5atRHufomhY7fy9LRmyhgYYNCvh4LPz9dxKg",
+        "Ft7hwtudDvX4EVNZcbkq74oXpNGT3DfH8htogcBJz9FN",
+        "12Z8dkJdCgWxE6zeekmbJyn1FZ6hvT9xL3DQKYaEm5WZ",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+      ],
+      "recentBlockhash": "8fX2izDj5XGNhjvauwPg1pVrfaZAKWyzL8vWnPE5DB1e",
+      "instructions": [
+        {
+          "programIdIndex": 9,
+          "accounts": [5, 0, 1],
+          "data": "A",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 9,
+          "accounts": [6, 0, 2],
+          "data": "A",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 9,
+          "accounts": [7, 0, 3],
+          "data": "A",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 9,
+          "accounts": [8, 0, 4],
+          "data": "A",
+          "stackHeight": 1
+        }
+      ],
+      "addressTableLookups": []
+    }
+  },
+  "meta": {
+    "err": {
+      "InstructionError": [0, "IncorrectProgramId"]
+    },
+    "status": {
+      "Err": {
+        "InstructionError": [0, "IncorrectProgramId"]
+      }
+    },
+    "fee": 25000,
+    "preBalances": [65549489186, 46474537, 46975486, 46451865, 47666430, 0, 0, 0, 0, 70128638],
+    "postBalances": [65549464186, 46474537, 46975486, 46451865, 47666430, 0, 0, 0, 0, 70128638],
+    "innerInstructions": [],
+    "logMessages": [
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [1]",
+      "Program log: Instruction: CloseAccount",
+      "Program log: Error: IncorrectProgramId",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1067 of 800000 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb failed: incorrect program id for instruction"
+    ],
+    "preTokenBalances": [],
+    "postTokenBalances": [],
+    "rewards": [],
+    "loadedAddresses": {
+      "writable": [],
+      "readonly": []
+    },
+    "computeUnitsConsumed": 1067,
+    "costUnits": 6512
+  },
+  "version": 0,
+  "slot": 439419612,
+  "transactionIndex": 1189,
+  "blockTime": 1786791039
+}

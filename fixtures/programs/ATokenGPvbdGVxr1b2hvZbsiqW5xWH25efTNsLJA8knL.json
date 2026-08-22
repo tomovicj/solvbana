@@ -1,0 +1,14 @@
+{
+  "programId": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+  "readAtSlot": 439651985,
+  "program": {
+    "owner": "BPFLoader2111111111111111111111111111111111",
+    "executable": true,
+    "data": "f0VMRgIBAQAAAAAAAAAAAAMA9wABAAAAyFQAAAAAAABAAAAA",
+    "size": 105032
+  },
+  "programDataHeader": null,
+  "idl": null,
+  "executableHash": null,
+  "trimmedElfLength": null
+}

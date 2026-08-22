@@ -1,4 +1,7 @@
+import type { Finding } from './analyze/types.ts';
 import type { Confidence } from './confidence.ts';
+import type { Explanation } from './explain/types.ts';
+import type { FailedTransaction } from './ingest/types.ts';
 
 /** A position in a program's source tree. */
 export interface SourceLocation {
@@ -43,6 +46,32 @@ export interface Diagnosis {
    * so a weak answer always explains itself instead of going quiet.
    */
   reasons: string[];
+  /**
+   * The normalized transaction, when one was retrieved.
+   *
+   * Absent only when the signature resolved to nothing at all — every other
+   * outcome, however degraded, still carries the failing instruction, the typed
+   * error, and whatever log stream survived.
+   */
+  transaction?: FailedTransaction;
+  /**
+   * What reading the logs established, as structured data rather than prose.
+   *
+   * Absent when there was no transaction to read. It is deliberately not folded
+   * into `summary`: Phase 4 renders source excerpts and recomputes PDAs from
+   * these fields, and a renderer forced to re-parse its own summary string would
+   * be a parser for a format nobody specified.
+   */
+  finding?: Finding;
+  /**
+   * What the transaction record and the program's IDL show about the failure.
+   *
+   * Absent when there was no transaction, or when building it failed — in which
+   * case `reasons` says so. Carries no confidence and no locations by design:
+   * this tier explains what the earlier ones established and locates nothing
+   * new, so it cannot promote a diagnosis.
+   */
+  explanation?: Explanation;
 }
 
 /**

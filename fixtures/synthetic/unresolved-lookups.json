@@ -1,0 +1,55 @@
+{
+  "_comment": "Hand-written. A v0 transaction that loads accounts from an address lookup table, from an RPC that omitted `meta.loadedAddresses`. Ingest must report the gap rather than reading the table's current contents, which may have been extended since this slot.",
+  "slot": 300000002,
+  "blockTime": 1730000002,
+  "version": 0,
+  "transaction": {
+    "signatures": [
+      "5g7Jw2cVPZbVBhFvBLQqW7tJXhWXNTKqPZvGkYXsjKq3ZKcNgWFqDrNwLZFwEyBRPJZQsMhBqtVYBLp2vXHTnUcz"
+    ],
+    "message": {
+      "accountKeys": [
+        "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+        "MyProg1111111111111111111111111111111111111"
+      ],
+      "header": {
+        "numRequiredSignatures": 1,
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1
+      },
+      "recentBlockhash": "EkSnNWid2cvwEVnVx9aBqawnmiCNiDgp3gUdkDPTKN1N",
+      "instructions": [
+        {
+          "programIdIndex": 1,
+          "accounts": [0, 2, 3],
+          "data": "3Bxs4h24hBtQy9rw",
+          "stackHeight": null
+        }
+      ],
+      "addressTableLookups": [
+        {
+          "accountKey": "AddressLookupTab1e1111111111111111111111111",
+          "writableIndexes": [4],
+          "readonlyIndexes": [7]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "err": { "InstructionError": [0, { "Custom": 6001 }] },
+    "fee": 5000,
+    "preBalances": [1000000000, 1],
+    "postBalances": [999995000, 1],
+    "innerInstructions": [],
+    "logMessages": [
+      "Program MyProg1111111111111111111111111111111111111 invoke [1]",
+      "Program log: Instruction: Withdraw",
+      "Program MyProg1111111111111111111111111111111111111 failed: custom program error: 0x1771"
+    ],
+    "preTokenBalances": [],
+    "postTokenBalances": [],
+    "rewards": null,
+    "computeUnitsConsumed": 4210,
+    "status": { "Err": { "InstructionError": [0, { "Custom": 6001 }] } }
+  }
+}

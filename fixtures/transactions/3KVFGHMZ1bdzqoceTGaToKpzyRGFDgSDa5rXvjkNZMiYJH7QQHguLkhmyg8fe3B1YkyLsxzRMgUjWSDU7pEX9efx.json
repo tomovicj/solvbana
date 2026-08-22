@@ -1,0 +1,130 @@
+{
+  "transaction": {
+    "signatures": [
+      "3KVFGHMZ1bdzqoceTGaToKpzyRGFDgSDa5rXvjkNZMiYJH7QQHguLkhmyg8fe3B1YkyLsxzRMgUjWSDU7pEX9efx"
+    ],
+    "message": {
+      "header": {
+        "numRequiredSignatures": 1,
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 4
+      },
+      "accountKeys": [
+        "stnkwFt5Ao6Kq9QqfuLchMHJDxBSD6sqeJfiqM3aAKr",
+        "2azAi6XzPXGzSPDiRZ1LTf7eRF5HvjTya8rAqPWc37rr",
+        "3ZiUiHKJ4tMBF5VTxaDLi4obFZ8GQEtRxkHJ3iPeio4M",
+        "8JpiZDSBJwoHh1HAr8AggDmrFT6vzwrvyi1wM8evcr4U",
+        "8w2WHmvxfDwxWjSratnUW2b6Du97GRjajp8iamMDwxKY",
+        "DAc9d2y8M2Bc2KuN2VRUWdBWN8idBfJF9Z9gS57eVASq",
+        "FA2ZsKe5DVLuDKtP7H8ZMPgBxpt8gkTDRpWRE9zRRiRW",
+        "FKFNR58iEDPdmwnLsYwVz8NURvtNmAkjKv4sRKdDxwLT",
+        "ComputeBudget111111111111111111111111111111",
+        "BrBazJVX7H6EjKDW18CSAPj1nmZsvNwX31UKketzaZP7",
+        "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "GdxfTLSsdSY37G6fZoYtdGDSfgFnbT2EmRpuePZxWShS"
+      ],
+      "recentBlockhash": "6hA74ZreknuL6qaQxjWhjr57PYTa6742b7wasoDGrzf1",
+      "instructions": [
+        {
+          "programIdIndex": 10,
+          "accounts": [10, 11, 0, 9, 5],
+          "data": "4Ms3SMNCkwC8wmDkh4FKhxfduXChUAkzCQtpGMSeB3oigfaWqUe1Tq9CUis",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 10,
+          "accounts": [10, 11, 0, 9, 7],
+          "data": "4Ms3SMNCkwC28rPFp783fbHCtysH51JDzozF8exJMyBu9WF9tRfDqMpd9X5",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 10,
+          "accounts": [10, 11, 0, 9, 2],
+          "data": "4Ms3SMNCkwC3b77irig8xtR7UuxhTj9WPMyWX372j4jhQBconh2rM36Zp2T",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 10,
+          "accounts": [10, 11, 0, 9, 3],
+          "data": "4Ms3SMNCkwC3X5jVj4KYg9zgtPmrhrNMY695QW4Hoo2kURr9CEaHBzGPaNT",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 10,
+          "accounts": [10, 11, 0, 9, 6],
+          "data": "4Ms3SMNCkwBxwGzArMFbQ7H5cvhy8xfXViHd6GGTHwkRdNHZM7WLK6F7kmD",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 10,
+          "accounts": [10, 11, 0, 9, 4],
+          "data": "4Ms3SMNCkwBxsdtThoVfH7zzNn4tCCLm8rFwY17PtpTZNWbPHy3GGdXivaB",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 10,
+          "accounts": [10, 11, 0, 9, 1],
+          "data": "4Ms3SMNCkwBzf4VXumhLYKAnicuthh4nEcmgTHnRCrwoUaMy8wWFhLK8J7h",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 8,
+          "accounts": [],
+          "data": "Fq1D3V",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 8,
+          "accounts": [],
+          "data": "3YC6wFMb46SB",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 8,
+          "accounts": [],
+          "data": "WT4XxX",
+          "stackHeight": 1
+        }
+      ]
+    }
+  },
+  "meta": {
+    "err": {
+      "InstructionError": [0, "InvalidInstructionData"]
+    },
+    "status": {
+      "Err": {
+        "InstructionError": [0, "InvalidInstructionData"]
+      }
+    },
+    "fee": 5001,
+    "preBalances": [
+      374526189185, 20267520, 20267520, 20267520, 20267520, 38864640, 20267520, 20267520, 1,
+      38196480, 1241441, 0
+    ],
+    "postBalances": [
+      374526184184, 20267520, 20267520, 20267520, 20267520, 38864640, 20267520, 20267520, 1,
+      38196480, 1241441, 0
+    ],
+    "innerInstructions": [],
+    "logMessages": [
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih invoke [1]",
+      "Program log: user_price_sequence_number must be strictly greater than stored value",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih consumed 580 of 5700 compute units",
+      "Program EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: invalid instruction data"
+    ],
+    "preTokenBalances": [],
+    "postTokenBalances": [],
+    "rewards": [],
+    "loadedAddresses": {
+      "writable": [],
+      "readonly": []
+    },
+    "computeUnitsConsumed": 580,
+    "costUnits": 4564
+  },
+  "version": "legacy",
+  "slot": 439419669,
+  "transactionIndex": 317,
+  "blockTime": 1786791062
+}

@@ -1,0 +1,27 @@
+{
+  "programId": "B4dId11111111111111111111111111111111111111",
+  "readAtSlot": 439652088,
+  "program": {
+    "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+    "executable": true,
+    "data": "AgAAALCj2NteOsPf+tyRpPc+hRFSbDKg2sRwo9znup2STWeS",
+    "size": 36
+  },
+  "programDataHeader": {
+    "address": "CtXfPzz36dH5Ws4UYKZvrQ1Xqzn42ecDW6y8NKuiN8nD",
+    "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+    "executable": false,
+    "data": "AwAAAHPouRcAAAAAAezGza8ikrL73BJf2nvfj0M3epeaxgn4Is0mUqub30T8",
+    "size": 10485760
+  },
+  "idl": {
+    "address": "2KFqE4RWoPVbvodo8vbggCFeHPS8TDvgpwp79ALMrcyn",
+    "owner": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+    "executable": false,
+    "data": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBw==",
+    "size": 64
+  },
+  "executableHash": "52e75447d1d49774ff6938484c9011e303860995497f0687a45febb3db21c5b0",
+  "trimmedElfLength": 1537769,
+  "_comment": "Hand-written: an account exists at the Anchor-derived IDL address but does not hold an IDL. Must degrade to \"unreadable\" rather than throwing, and must not license the Anchor built-in error table."
+}

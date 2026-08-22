@@ -1,0 +1,982 @@
+{
+  "entries": [
+    {
+      "signature": "25PWgVfPgPLLP9rtWwJiYqJfR1zvr3TVLKSaa2zHECVyGqrx85tbD7JNgJoqA7K4FELdNfbzLFuoYtrNczaHi8hp",
+      "category": "runtime-error",
+      "file": "25PWgVfPgPLLP9rtWwJiYqJfR1zvr3TVLKSaa2zHECVyGqrx85tbD7JNgJoqA7K4FELdNfbzLFuoYtrNczaHi8hp.json",
+      "failingInstructionIndex": 1,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "InvalidInstructionData|phDEVv4w6BcfkLrLNeXr8HhhgQxnxziVGXpGPcaadMf|",
+      "note": "phDEVv4w6BcfkLrLNeXr8HhhgQxnxziVGXpGPcaadMf failed: invalid instruction data",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "phDEVv4w6BcfkLrLNeXr8HhhgQxnxziVGXpGPcaadMf",
+        "handler": null,
+        "errorName": "InvalidInstructionData",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "29idsuwgUbxrhf7QsYbobic7tEvCyN6exwAV6jXdF3RtLafiWZYwGBbJ9Q7DsWaHxmZxjtGof8aJoAKpzNtQzKst",
+      "category": "native-program",
+      "file": "29idsuwgUbxrhf7QsYbobic7tEvCyN6exwAV6jXdF3RtLafiWZYwGBbJ9Q7DsWaHxmZxjtGof8aJoAKpzNtQzKst.json",
+      "failingInstructionIndex": 1,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "InvalidAccountData|TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA|",
+      "note": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA failed: invalid account data for instruction",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "handler": null,
+        "errorName": "InvalidAccountData",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "2eUHZkMKEKPwhkuZwVCRbE4aq8mVbcCpZCCb9yUDvXg3xkqBkGqGoirAD2i9MzHdqumkQWiAgyLLC9oEJywa1JBP",
+      "category": "compute-exhaustion",
+      "file": "2eUHZkMKEKPwhkuZwVCRbE4aq8mVbcCpZCCb9yUDvXg3xkqBkGqGoirAD2i9MzHdqumkQWiAgyLLC9oEJywa1JBP.json",
+      "failingInstructionIndex": 0,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "ProgramFailedToComplete|CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK|",
+      "note": "Compute budget exhausted in CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK; the program was cut off mid-execution.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK",
+        "handler": "SwapV2",
+        "errorName": "ProgramFailedToComplete",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "2EY4YuUtAncPCvBLJtkRantr4t6S6bfmYmPTjVVRaDJ4ep9zvZvdENzXdFQdsZ9EhwF2ua1sHToYNCnwv43NqybY",
+      "category": "custom-error",
+      "file": "2EY4YuUtAncPCvBLJtkRantr4t6S6bfmYmPTjVVRaDJ4ep9zvZvdENzXdFQdsZ9EhwF2ua1sHToYNCnwv43NqybY.json",
+      "failingInstructionIndex": 3,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(3)|DF3LjmyzuMApbw55YeC52JJArKgQjygKWZFUB9TNqLWn|",
+      "note": "DF3LjmyzuMApbw55YeC52JJArKgQjygKWZFUB9TNqLWn failed: custom program error: 0x3",
+      "phase1": {
+        "confidence": "unknown",
+        "program": "DF3LjmyzuMApbw55YeC52JJArKgQjygKWZFUB9TNqLWn",
+        "handler": null,
+        "errorName": null,
+        "errorNumber": 3,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "2i7v2BSJV38NaNRqbY9XrtsxzDNQ2MuXYLBpcrPvdTEurx94GYBQBMxfPcUadVmzzxCEwW3DzosdsQWrfwf1JKof",
+      "category": "panic",
+      "file": "2i7v2BSJV38NaNRqbY9XrtsxzDNQ2MuXYLBpcrPvdTEurx94GYBQBMxfPcUadVmzzxCEwW3DzosdsQWrfwf1JKof.json",
+      "failingInstructionIndex": 2,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "ProgramFailedToComplete|ANFTVQBEyWF27FLx3LKCvZk3nWudUKhsT7uNxamUAD7c|src/state.rs:376:12",
+      "note": "Rust panic at src/state.rs:376:12 (pre-1.73 format): index out of bounds: the len is 0 but the index is 0",
+      "phase1": {
+        "confidence": "exact",
+        "program": "ANFTVQBEyWF27FLx3LKCvZk3nWudUKhsT7uNxamUAD7c",
+        "handler": "WithdrawCnft",
+        "errorName": "ProgramFailedToComplete",
+        "errorNumber": null,
+        "site": {
+          "file": "src/state.rs",
+          "line": 376
+        },
+        "account": null
+      }
+    },
+    {
+      "signature": "2jRZKrmUXWHbV4VVBPGoXiTD4quZ1nHvos2wfQ2WMMwLGpu3sjaMeyU5t1aVhikUiEN9683Lwrj9rDVyCbg42gpu",
+      "category": "anchor-account",
+      "file": "2jRZKrmUXWHbV4VVBPGoXiTD4quZ1nHvos2wfQ2WMMwLGpu3sjaMeyU5t1aVhikUiEN9683Lwrj9rDVyCbg42gpu.json",
+      "failingInstructionIndex": 4,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(3012)|pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA|",
+      "note": "Anchor AccountNotInitialized (3012) on account `user_base_token_account`: The program expected this account to be already initialized.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+        "handler": "Sell",
+        "errorName": "AccountNotInitialized",
+        "errorNumber": 3012,
+        "site": null,
+        "account": "user_base_token_account"
+      },
+      "phase4": {
+        "namedAccounts": true,
+        "derivation": {
+          "account": "user_base_token_account",
+          "status": "match",
+          "source": "associated-token"
+        }
+      }
+    },
+    {
+      "signature": "2L2Z8DkPRKmRDp9PvzjtJyrKpHqchgDDHhpvuPGRNULGpRqfAdERk3ucLPsRvYZR7npRG71WCxayLMPUBAFLtnGi",
+      "category": "custom-error",
+      "file": "2L2Z8DkPRKmRDp9PvzjtJyrKpHqchgDDHhpvuPGRNULGpRqfAdERk3ucLPsRvYZR7npRG71WCxayLMPUBAFLtnGi.json",
+      "failingInstructionIndex": 3,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(3)|4F3t3Tpiyoi7Dn8oHytwJFVYJJf8cervvPL7DsZMDnCn|",
+      "note": "4F3t3Tpiyoi7Dn8oHytwJFVYJJf8cervvPL7DsZMDnCn failed: custom program error: 0x3",
+      "phase1": {
+        "confidence": "unknown",
+        "program": "4F3t3Tpiyoi7Dn8oHytwJFVYJJf8cervvPL7DsZMDnCn",
+        "handler": null,
+        "errorName": null,
+        "errorNumber": 3,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "2o1fyzmnvvq6JMvqCZ15a5CP2tWddGcypGLwDSATECwC9QtUPWhyXeP7j3wuwzRhShgfeGSAJE1qd3qj3foC3pcx",
+      "category": "anchor-account",
+      "file": "2o1fyzmnvvq6JMvqCZ15a5CP2tWddGcypGLwDSATECwC9QtUPWhyXeP7j3wuwzRhShgfeGSAJE1qd3qj3foC3pcx.json",
+      "failingInstructionIndex": 1,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(3012)|6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P|",
+      "note": "Anchor AccountNotInitialized (3012) on account `associated_user`: The program expected this account to be already initialized.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+        "handler": "Sell",
+        "errorName": "AccountNotInitialized",
+        "errorNumber": 3012,
+        "site": null,
+        "account": "associated_user"
+      },
+      "phase4": {
+        "namedAccounts": true,
+        "derivation": {
+          "account": "associated_user",
+          "status": "not-derivable",
+          "source": "associated-token"
+        }
+      }
+    },
+    {
+      "signature": "2oJHNzD8xNnCjq5QdoDx1S4gg78aopRKUwhXRfDtkFBS2YE7qD7wGvY1X8Yi2J84xaNqYFMsHxhZyhdmNQDZvBMA",
+      "category": "runtime-error",
+      "file": "2oJHNzD8xNnCjq5QdoDx1S4gg78aopRKUwhXRfDtkFBS2YE7qD7wGvY1X8Yi2J84xaNqYFMsHxhZyhdmNQDZvBMA.json",
+      "failingInstructionIndex": 1,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "InvalidAccountData|Hrg1JDwubuxA5Eoi8V4oMAWRZb4azXr4gBmzHxMgL7FB|",
+      "note": "Hrg1JDwubuxA5Eoi8V4oMAWRZb4azXr4gBmzHxMgL7FB failed: invalid account data for instruction",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "Hrg1JDwubuxA5Eoi8V4oMAWRZb4azXr4gBmzHxMgL7FB",
+        "handler": null,
+        "errorName": "InvalidAccountData",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "2R9MQkBNGrCK6ABJSxfv99ekdGZX8vxxLMoieZRopXVje6XwekFnSAxQwMFzQ1k1jfvHNA3HFrs8ENLbo4xRXbq9",
+      "category": "anchor-account",
+      "file": "2R9MQkBNGrCK6ABJSxfv99ekdGZX8vxxLMoieZRopXVje6XwekFnSAxQwMFzQ1k1jfvHNA3HFrs8ENLbo4xRXbq9.json",
+      "failingInstructionIndex": 2,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(3012)|term9YPb9mzAsABaqN71A4xdbxHmpBNZavpBiQKZzN3|",
+      "note": "Anchor AccountNotInitialized (3012) on account `nonce_account`: The program expected this account to be already initialized.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "term9YPb9mzAsABaqN71A4xdbxHmpBNZavpBiQKZzN3",
+        "handler": "ValidateNonce",
+        "errorName": "AccountNotInitialized",
+        "errorNumber": 3012,
+        "site": null,
+        "account": "nonce_account"
+      }
+    },
+    {
+      "signature": "2UgVWmCBHCYtRL5afS2ZvevLeKKJkaTEnt32o25AZCkDYaHfevZKmNppadTAeK8TSJv5jHvtoo17wjt2ULNkE2kM",
+      "category": "compute-exhaustion",
+      "file": "2UgVWmCBHCYtRL5afS2ZvevLeKKJkaTEnt32o25AZCkDYaHfevZKmNppadTAeK8TSJv5jHvtoo17wjt2ULNkE2kM.json",
+      "failingInstructionIndex": 0,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "ProgramFailedToComplete|CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK|",
+      "note": "Compute budget exhausted in CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK; the program was cut off mid-execution.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK",
+        "handler": "SwapV2",
+        "errorName": "ProgramFailedToComplete",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "2WH1WJ5NWFZFCzcvz4zUaEz6SH3eLFnP7UzMCMciND1f219mYc3JDbhSw2UP7dHSAdPjWf6YihYF6JAunoy2nk9N",
+      "category": "custom-error",
+      "file": "2WH1WJ5NWFZFCzcvz4zUaEz6SH3eLFnP7UzMCMciND1f219mYc3JDbhSw2UP7dHSAdPjWf6YihYF6JAunoy2nk9N.json",
+      "failingInstructionIndex": 4,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(6040)|pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA|",
+      "note": "Anchor BuySlippageBelowMinBaseAmountOut (6040) thrown at programs/pump-amm/src/instructions/swap/buy.rs:687: buy: slippage - would buy less tokens than expected min_base_amount_out.",
+      "phase1": {
+        "confidence": "exact",
+        "program": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+        "handler": "BuyExactQuoteIn",
+        "errorName": "BuySlippageBelowMinBaseAmountOut",
+        "errorNumber": 6040,
+        "site": {
+          "file": "programs/pump-amm/src/instructions/swap/buy.rs",
+          "line": 687
+        },
+        "account": null
+      }
+    },
+    {
+      "signature": "2ZMVP9Hygjb7BYwKarxKzqBd9UEoWz3QDcQd6Gfb9EtDnKowhBosStcM4JXpvK2Thg9SR4KgdMaDTHZcgvLwBozW",
+      "category": "compute-exhaustion",
+      "file": "2ZMVP9Hygjb7BYwKarxKzqBd9UEoWz3QDcQd6Gfb9EtDnKowhBosStcM4JXpvK2Thg9SR4KgdMaDTHZcgvLwBozW.json",
+      "failingInstructionIndex": 0,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "ProgramFailedToComplete|pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ|",
+      "note": "Compute budget exhausted in pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ; the program was cut off mid-execution.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ",
+        "handler": "GetFees",
+        "errorName": "ProgramFailedToComplete",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "32WWTdnbhXu7aZGjTy8bjF7EtxdKZ46PjABf6M9K9rANqcaLqt4mcESfpkouGbCjWwtC6pwZbwfHY52wZJMgAwJ4",
+      "category": "runtime-error",
+      "file": "32WWTdnbhXu7aZGjTy8bjF7EtxdKZ46PjABf6M9K9rANqcaLqt4mcESfpkouGbCjWwtC6pwZbwfHY52wZJMgAwJ4.json",
+      "failingInstructionIndex": 1,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "InvalidAccountData|Hrg1JDwubuxA5Eoi8V4oMAWRZb4azXr4gBmzHxMgL7FB|",
+      "note": "Hrg1JDwubuxA5Eoi8V4oMAWRZb4azXr4gBmzHxMgL7FB failed: invalid account data for instruction",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "Hrg1JDwubuxA5Eoi8V4oMAWRZb4azXr4gBmzHxMgL7FB",
+        "handler": null,
+        "errorName": "InvalidAccountData",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "34PosJasPes8F3vYpnz7FZHDs9YP29MriTUFdC8q4eyJYgFH5aRxLv9CNP7WeqbyZPSgbB1vfcYD5R4H3FX4M96w",
+      "category": "anchor-constraint",
+      "file": "34PosJasPes8F3vYpnz7FZHDs9YP29MriTUFdC8q4eyJYgFH5aRxLv9CNP7WeqbyZPSgbB1vfcYD5R4H3FX4M96w.json",
+      "failingInstructionIndex": 0,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(2003)|T1pyyaTNZsKv2WcRAB8oVnk93mLJw2XzjtVYqCsaHqt|",
+      "note": "Anchor ConstraintRaw (2003) on account `tip_receiver`: A raw constraint was violated.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "T1pyyaTNZsKv2WcRAB8oVnk93mLJw2XzjtVYqCsaHqt",
+        "handler": "ChangeBlockBuilder",
+        "errorName": "ConstraintRaw",
+        "errorNumber": 2003,
+        "site": null,
+        "account": "tip_receiver"
+      }
+    },
+    {
+      "signature": "3BFz86dEZ25khjqq6NnznZSenS4bEGMjQNtuHN8PhAKxNUy6wmNE562GjQhwAArDHVXYfvWzvFq2FnehM3oiwMJT",
+      "category": "anchor-constraint",
+      "file": "3BFz86dEZ25khjqq6NnznZSenS4bEGMjQNtuHN8PhAKxNUy6wmNE562GjQhwAArDHVXYfvWzvFq2FnehM3oiwMJT.json",
+      "failingInstructionIndex": 2,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(2012)|whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc|",
+      "note": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc failed: custom program error: 0x7dc",
+      "phase1": {
+        "confidence": "unknown",
+        "program": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+        "handler": null,
+        "errorName": null,
+        "errorNumber": 2012,
+        "site": null,
+        "account": null
+      },
+      "phase2": {
+        "confidence": "variant-only",
+        "errorName": "ConstraintAddress",
+        "errorNumber": 2012,
+        "naming": "anchor-builtin",
+        "handler": "increase_liquidity_v2",
+        "handlerSource": "discriminator"
+      },
+      "phase4": {
+        "namedAccounts": false
+      }
+    },
+    {
+      "signature": "3KVFGHMZ1bdzqoceTGaToKpzyRGFDgSDa5rXvjkNZMiYJH7QQHguLkhmyg8fe3B1YkyLsxzRMgUjWSDU7pEX9efx",
+      "category": "runtime-error",
+      "file": "3KVFGHMZ1bdzqoceTGaToKpzyRGFDgSDa5rXvjkNZMiYJH7QQHguLkhmyg8fe3B1YkyLsxzRMgUjWSDU7pEX9efx.json",
+      "failingInstructionIndex": 0,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "InvalidInstructionData|EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih|",
+      "note": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: invalid instruction data",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "handler": null,
+        "errorName": "InvalidInstructionData",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "3obFmnwZyb23HZcTe88xvTBq6fVe3D2wUGZSzVpD15Sd1JoUF2FJHNmyt3BT3CBdigr6x4ZLoJ1zaYWqJvTHgJoS",
+      "category": "panic",
+      "file": "3obFmnwZyb23HZcTe88xvTBq6fVe3D2wUGZSzVpD15Sd1JoUF2FJHNmyt3BT3CBdigr6x4ZLoJ1zaYWqJvTHgJoS.json",
+      "failingInstructionIndex": 2,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "ProgramFailedToComplete|ANFTVQBEyWF27FLx3LKCvZk3nWudUKhsT7uNxamUAD7c|src/state.rs:376:12",
+      "note": "Rust panic at src/state.rs:376:12 (pre-1.73 format): index out of bounds: the len is 0 but the index is 0",
+      "phase1": {
+        "confidence": "exact",
+        "program": "ANFTVQBEyWF27FLx3LKCvZk3nWudUKhsT7uNxamUAD7c",
+        "handler": "WithdrawCnft",
+        "errorName": "ProgramFailedToComplete",
+        "errorNumber": null,
+        "site": {
+          "file": "src/state.rs",
+          "line": 376
+        },
+        "account": null
+      }
+    },
+    {
+      "signature": "3pFHktzDfYg8Gcrq6KifZ534B3qaqLNP47pw89nxri4MyeWLbRbthWFkE3b9RekDVj79RKWyytLr75wUNvS3JxAR",
+      "category": "custom-error",
+      "file": "3pFHktzDfYg8Gcrq6KifZ534B3qaqLNP47pw89nxri4MyeWLbRbthWFkE3b9RekDVj79RKWyytLr75wUNvS3JxAR.json",
+      "failingInstructionIndex": 4,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(7)|8bCAJCqHNVaraR2EMHzoXc9jDFGeax2rF56N2vHWEceT|",
+      "note": "8bCAJCqHNVaraR2EMHzoXc9jDFGeax2rF56N2vHWEceT failed: custom program error: 0x7",
+      "phase1": {
+        "confidence": "unknown",
+        "program": "8bCAJCqHNVaraR2EMHzoXc9jDFGeax2rF56N2vHWEceT",
+        "handler": null,
+        "errorName": null,
+        "errorNumber": 7,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "3PnbsrGgVUMSPwqttZCgd9Ln5R4F9XikBJLjEBWBFWzknpjB3je6zzAFgrv7RNto862kaSwHesC6A13nzA2LEN8",
+      "category": "custom-error",
+      "file": "3PnbsrGgVUMSPwqttZCgd9Ln5R4F9XikBJLjEBWBFWzknpjB3je6zzAFgrv7RNto862kaSwHesC6A13nzA2LEN8.json",
+      "failingInstructionIndex": 4,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(7)|8bCAJCqHNVaraR2EMHzoXc9jDFGeax2rF56N2vHWEceT|",
+      "note": "8bCAJCqHNVaraR2EMHzoXc9jDFGeax2rF56N2vHWEceT failed: custom program error: 0x7",
+      "phase1": {
+        "confidence": "unknown",
+        "program": "8bCAJCqHNVaraR2EMHzoXc9jDFGeax2rF56N2vHWEceT",
+        "handler": null,
+        "errorName": null,
+        "errorNumber": 7,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "3QfoaTTJMrnrNJqmk68WcTrSBzhrRFXRhb38kcY95kduyiAwiNwJcRV75f7eYQz1rdsno1jVPvN8ped2KhcCPqUd",
+      "category": "anchor-constraint",
+      "file": "3QfoaTTJMrnrNJqmk68WcTrSBzhrRFXRhb38kcY95kduyiAwiNwJcRV75f7eYQz1rdsno1jVPvN8ped2KhcCPqUd.json",
+      "failingInstructionIndex": 2,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(2012)|whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc|",
+      "note": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc failed: custom program error: 0x7dc",
+      "phase1": {
+        "confidence": "unknown",
+        "program": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+        "handler": null,
+        "errorName": null,
+        "errorNumber": 2012,
+        "site": null,
+        "account": null
+      },
+      "phase2": {
+        "confidence": "variant-only",
+        "errorName": "ConstraintAddress",
+        "errorNumber": 2012,
+        "naming": "anchor-builtin",
+        "handler": "increase_liquidity_v2",
+        "handlerSource": "discriminator"
+      },
+      "phase4": {
+        "namedAccounts": false
+      }
+    },
+    {
+      "signature": "3SwYXKY8K9P5ya5nz97TCNyLV4ss98sQRFytrEJZxwRnKUKN6abFnrc1E8r67v9EKaqqRrihvYdvzcNXzFaTK7vP",
+      "category": "compute-exhaustion",
+      "file": "3SwYXKY8K9P5ya5nz97TCNyLV4ss98sQRFytrEJZxwRnKUKN6abFnrc1E8r67v9EKaqqRrihvYdvzcNXzFaTK7vP.json",
+      "failingInstructionIndex": 0,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "ProgramFailedToComplete|pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA|",
+      "note": "Compute budget exhausted in pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA; the program was cut off mid-execution.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+        "handler": "Sell",
+        "errorName": "ProgramFailedToComplete",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "3YLVMEwLRAtg1zvRE7mLAM9WpM4WBj4HhETDJXhuiWAV8sHrEw5aDzfYj64BcXMDmKAGurSG8qy7DMySgpcZr9rD",
+      "category": "custom-error",
+      "file": "3YLVMEwLRAtg1zvRE7mLAM9WpM4WBj4HhETDJXhuiWAV8sHrEw5aDzfYj64BcXMDmKAGurSG8qy7DMySgpcZr9rD.json",
+      "failingInstructionIndex": 3,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(3)|DF3LjmyzuMApbw55YeC52JJArKgQjygKWZFUB9TNqLWn|",
+      "note": "DF3LjmyzuMApbw55YeC52JJArKgQjygKWZFUB9TNqLWn failed: custom program error: 0x3",
+      "phase1": {
+        "confidence": "unknown",
+        "program": "DF3LjmyzuMApbw55YeC52JJArKgQjygKWZFUB9TNqLWn",
+        "handler": null,
+        "errorName": null,
+        "errorNumber": 3,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "3Zy2PonJEBZ4f2nx8Yaz8cjmYTn9KvFPLCcnyzX2uSktgaNcty18WRLkEWw5LHVGPVS6bJ5tzxEentsyqvoio7Le",
+      "category": "native-program",
+      "file": "3Zy2PonJEBZ4f2nx8Yaz8cjmYTn9KvFPLCcnyzX2uSktgaNcty18WRLkEWw5LHVGPVS6bJ5tzxEentsyqvoio7Le.json",
+      "failingInstructionIndex": 3,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "IllegalOwner|ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL|",
+      "note": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL failed: Provided owner is not allowed",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+        "handler": null,
+        "errorName": "IllegalOwner",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "42FcAHFeWKqM5DbwsZKKshYHgUzcCYQqjx41afH9XXuE4nMrGR7Rdd5pG1GjAL5FuCq7q8PxZuABTivZx2DoBNFw",
+      "category": "anchor-constraint",
+      "file": "42FcAHFeWKqM5DbwsZKKshYHgUzcCYQqjx41afH9XXuE4nMrGR7Rdd5pG1GjAL5FuCq7q8PxZuABTivZx2DoBNFw.json",
+      "failingInstructionIndex": 3,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(2505)|CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C|",
+      "note": "Anchor RequireGtViolated (2505) thrown at programs/cp-swap/src/instructions/swap_base_input.rs:149: A require_gt expression was violated.",
+      "phase1": {
+        "confidence": "exact",
+        "program": "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C",
+        "handler": "SwapBaseInput",
+        "errorName": "RequireGtViolated",
+        "errorNumber": 2505,
+        "site": {
+          "file": "programs/cp-swap/src/instructions/swap_base_input.rs",
+          "line": 149
+        },
+        "account": null
+      }
+    },
+    {
+      "signature": "47X6aTYiEHMP97aSTjLc8s6BX2UkBpCSWLYWsRV2eTxfGBccKB2UiXRSVfUcYX67wxt9q5jZ9i6jDEEQEp8swmMf",
+      "category": "anchor-constraint",
+      "file": "47X6aTYiEHMP97aSTjLc8s6BX2UkBpCSWLYWsRV2eTxfGBccKB2UiXRSVfUcYX67wxt9q5jZ9i6jDEEQEp8swmMf.json",
+      "failingInstructionIndex": 3,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(2505)|CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C|",
+      "note": "Anchor RequireGtViolated (2505) thrown at programs/cp-swap/src/instructions/swap_base_input.rs:149: A require_gt expression was violated.",
+      "phase1": {
+        "confidence": "exact",
+        "program": "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C",
+        "handler": "SwapBaseInput",
+        "errorName": "RequireGtViolated",
+        "errorNumber": 2505,
+        "site": {
+          "file": "programs/cp-swap/src/instructions/swap_base_input.rs",
+          "line": 149
+        },
+        "account": null
+      }
+    },
+    {
+      "signature": "4dzkgSYdQHsVEHCpN23aECyVq5h5CNqhNJjxQkTprznau4Xoyz7GNnW1uM77P3tqqKX52sapCT9p6RUkoHbo5jVD",
+      "category": "anchor-account",
+      "file": "4dzkgSYdQHsVEHCpN23aECyVq5h5CNqhNJjxQkTprznau4Xoyz7GNnW1uM77P3tqqKX52sapCT9p6RUkoHbo5jVD.json",
+      "failingInstructionIndex": 1,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(3012)|6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P|",
+      "note": "Anchor AccountNotInitialized (3012) on account `associated_user`: The program expected this account to be already initialized.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+        "handler": "Sell",
+        "errorName": "AccountNotInitialized",
+        "errorNumber": 3012,
+        "site": null,
+        "account": "associated_user"
+      },
+      "phase4": {
+        "namedAccounts": true,
+        "derivation": {
+          "account": "associated_user",
+          "status": "not-derivable",
+          "source": "associated-token"
+        }
+      }
+    },
+    {
+      "signature": "4EGCCi8rJhRZjzLM2ykvqKPjdBq3KJVQ9AMZud9D4iwEgwgoP4fKEYS3kusrpFUq961E6CS1YMu4YUJQH7tsAXq8",
+      "category": "compute-exhaustion",
+      "file": "4EGCCi8rJhRZjzLM2ykvqKPjdBq3KJVQ9AMZud9D4iwEgwgoP4fKEYS3kusrpFUq961E6CS1YMu4YUJQH7tsAXq8.json",
+      "failingInstructionIndex": 3,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "ProgramFailedToComplete|675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8|",
+      "note": "Compute budget exhausted in 675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8; the program was cut off mid-execution.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",
+        "handler": null,
+        "errorName": "ProgramFailedToComplete",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "4LNe4qhUY5KhfPUyedwr9SawVroSjpUm7SZ3bssPzHyvDETMcv5amqipW64hj83h9WFojYvjyoqtJg6pLBmLB9pA",
+      "category": "compute-exhaustion",
+      "file": "4LNe4qhUY5KhfPUyedwr9SawVroSjpUm7SZ3bssPzHyvDETMcv5amqipW64hj83h9WFojYvjyoqtJg6pLBmLB9pA.json",
+      "failingInstructionIndex": 0,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "ProgramFailedToComplete|LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo|",
+      "note": "Compute budget exhausted in LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo; the program was cut off mid-execution.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+        "handler": "Swap2",
+        "errorName": "ProgramFailedToComplete",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "4pdXNiithit1n5RCVHv6YAwxnknsfsvNrh59EUbQoeMRd9JY6mMzsUUZUhTptsRZewqNk9bGjzdZ9ait7hYHEKU2",
+      "category": "panic",
+      "file": "4pdXNiithit1n5RCVHv6YAwxnknsfsvNrh59EUbQoeMRd9JY6mMzsUUZUhTptsRZewqNk9bGjzdZ9ait7hYHEKU2.json",
+      "failingInstructionIndex": 4,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "ProgramFailedToComplete|mineWsRs2Rmw2jPMkVbgAbDjV1E23yQ8TEodaX3iza4|program/src/miner/reset_permissionless.rs:39:39",
+      "note": "Rust panic at program/src/miner/reset_permissionless.rs:39:39 (post-1.73 format): attempt to add with overflow",
+      "phase1": {
+        "confidence": "exact",
+        "program": "mineWsRs2Rmw2jPMkVbgAbDjV1E23yQ8TEodaX3iza4",
+        "handler": null,
+        "errorName": "ProgramFailedToComplete",
+        "errorNumber": null,
+        "site": {
+          "file": "program/src/miner/reset_permissionless.rs",
+          "line": 39
+        },
+        "account": null
+      }
+    },
+    {
+      "signature": "4smXmEF6BV8aCS2wn4wL9avPJdXhtc82uGq2x9uFWezbxkc2hNsoDKzn83oQ8vPZW8UJBAcb36ZCcLbj4HRB9BQE",
+      "category": "panic",
+      "file": "4smXmEF6BV8aCS2wn4wL9avPJdXhtc82uGq2x9uFWezbxkc2hNsoDKzn83oQ8vPZW8UJBAcb36ZCcLbj4HRB9BQE.json",
+      "failingInstructionIndex": 4,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "ProgramFailedToComplete|oreV3EG1i9BEgiAJ8b177Z2S2rMarzak4NMv1kULvWv|program/src/reset.rs:25:39",
+      "note": "Rust panic at program/src/reset.rs:25:39 (post-1.73 format): attempt to add with overflow",
+      "phase1": {
+        "confidence": "exact",
+        "program": "oreV3EG1i9BEgiAJ8b177Z2S2rMarzak4NMv1kULvWv",
+        "handler": null,
+        "errorName": "ProgramFailedToComplete",
+        "errorNumber": null,
+        "site": {
+          "file": "program/src/reset.rs",
+          "line": 25
+        },
+        "account": null
+      }
+    },
+    {
+      "signature": "57o9VfRqzwFBSvikB7RxrcaDNthgJSXb5uA3w7V275RgB3YduYNkDdST8dSSCCAAxV1tm3YkW6uBfTSnEguuyX5m",
+      "category": "native-program",
+      "file": "57o9VfRqzwFBSvikB7RxrcaDNthgJSXb5uA3w7V275RgB3YduYNkDdST8dSSCCAAxV1tm3YkW6uBfTSnEguuyX5m.json",
+      "failingInstructionIndex": 0,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "IncorrectProgramId|TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb|",
+      "note": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb failed: incorrect program id for instruction",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "handler": "CloseAccount",
+        "errorName": "IncorrectProgramId",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "5aTPGurkWWo9D7JuERasEWWeBjXzBctZR14rGhZ1LtAotRNrUJHSpF3xJBzC9mFJTY8anRV1o1UM9b3A2jPoBWWk",
+      "category": "runtime-error",
+      "file": "5aTPGurkWWo9D7JuERasEWWeBjXzBctZR14rGhZ1LtAotRNrUJHSpF3xJBzC9mFJTY8anRV1o1UM9b3A2jPoBWWk.json",
+      "failingInstructionIndex": 3,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "ComputationalBudgetExceeded|JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4|",
+      "note": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 failed: Computational budget exceeded",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+        "handler": "Route",
+        "errorName": "ComputationalBudgetExceeded",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "5fsch8TuTV5UCTw8t8vLguaZtZKMVtUrZrDVhT7yNKuvQdri7sKJXGg2sLXehPb1kLFRrhH7naF1gKeWqJvLh5xy",
+      "category": "native-program",
+      "file": "5fsch8TuTV5UCTw8t8vLguaZtZKMVtUrZrDVhT7yNKuvQdri7sKJXGg2sLXehPb1kLFRrhH7naF1gKeWqJvLh5xy.json",
+      "failingInstructionIndex": 1,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "ComputationalBudgetExceeded|ComputeBudget111111111111111111111111111111|",
+      "note": "ComputeBudget111111111111111111111111111111 failed: Computational budget exceeded",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "ComputeBudget111111111111111111111111111111",
+        "handler": null,
+        "errorName": "ComputationalBudgetExceeded",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "5mCq2qnx2zsp1HMzqPZQrBP7r5fYLRuTU3uRQ5MauBnEoxW8CvgzRnotsTaXvoyGwdrNKvDh8oRThQcVUK57E81e",
+      "category": "anchor-constraint",
+      "file": "5mCq2qnx2zsp1HMzqPZQrBP7r5fYLRuTU3uRQ5MauBnEoxW8CvgzRnotsTaXvoyGwdrNKvDh8oRThQcVUK57E81e.json",
+      "failingInstructionIndex": 1,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(2004)|HDwcJBJXjL9FpJ7UBsYBtaDjsBUhuLCUYoz3zr8SWWaQ|",
+      "note": "Anchor ConstraintOwner (2004) on account `encoded_vaa`: An owner constraint was violated.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "HDwcJBJXjL9FpJ7UBsYBtaDjsBUhuLCUYoz3zr8SWWaQ",
+        "handler": "CloseEncodedVaa",
+        "errorName": "ConstraintOwner",
+        "errorNumber": 2004,
+        "site": null,
+        "account": "encoded_vaa"
+      }
+    },
+    {
+      "signature": "5mwPfK222WJ3aeksomKLmfZ8FBXBEixje4GqHLZzFQauqxYBBxDZLg77Aw6TyMiKP5k3Qsqc4V4ttGmrS3Z4FdxX",
+      "category": "native-program",
+      "file": "5mwPfK222WJ3aeksomKLmfZ8FBXBEixje4GqHLZzFQauqxYBBxDZLg77Aw6TyMiKP5k3Qsqc4V4ttGmrS3Z4FdxX.json",
+      "failingInstructionIndex": 1,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "ComputationalBudgetExceeded|ComputeBudget111111111111111111111111111111|",
+      "note": "ComputeBudget111111111111111111111111111111 failed: Computational budget exceeded",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "ComputeBudget111111111111111111111111111111",
+        "handler": null,
+        "errorName": "ComputationalBudgetExceeded",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "5oFQSfRqv3yN168Egk1GCCZW4Gh5TBu8wN6PsDfkwTjgx9vubcPFpnkV2BjDvhtdaBe1bCe4o6xEXftL5m9zKEDW",
+      "category": "runtime-error",
+      "file": "5oFQSfRqv3yN168Egk1GCCZW4Gh5TBu8wN6PsDfkwTjgx9vubcPFpnkV2BjDvhtdaBe1bCe4o6xEXftL5m9zKEDW.json",
+      "failingInstructionIndex": 1,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "ComputationalBudgetExceeded|pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA|",
+      "note": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA failed: Computational budget exceeded",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+        "handler": "BuyExactQuoteIn",
+        "errorName": "ComputationalBudgetExceeded",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "5qdLj8ATvzJ1qAKFzXBH6U4cMMFBt33xgwbbp9kLGrTeXFYEBC75QpedaEevZS2hbXLRfcezui6bRxBMZEFAJ4wo",
+      "category": "native-program",
+      "file": "5qdLj8ATvzJ1qAKFzXBH6U4cMMFBt33xgwbbp9kLGrTeXFYEBC75QpedaEevZS2hbXLRfcezui6bRxBMZEFAJ4wo.json",
+      "failingInstructionIndex": 2,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "IllegalOwner|ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL|",
+      "note": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL failed: Provided owner is not allowed",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+        "handler": null,
+        "errorName": "IllegalOwner",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "5wsyNnFie174G5xvmsa5pHx1z3rbwcz84po5oAkf1ffy9NwcwgTXW5V2WSeji3vMiRTcqzmCoZaidEQr9mS2c1g6",
+      "category": "anchor-account",
+      "file": "5wsyNnFie174G5xvmsa5pHx1z3rbwcz84po5oAkf1ffy9NwcwgTXW5V2WSeji3vMiRTcqzmCoZaidEQr9mS2c1g6.json",
+      "failingInstructionIndex": 2,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(3012)|pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA|",
+      "note": "Anchor AccountNotInitialized (3012) on account `user_base_token_account`: The program expected this account to be already initialized.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+        "handler": "Sell",
+        "errorName": "AccountNotInitialized",
+        "errorNumber": 3012,
+        "site": null,
+        "account": "user_base_token_account"
+      },
+      "phase4": {
+        "namedAccounts": true,
+        "derivation": {
+          "account": "user_base_token_account",
+          "status": "match",
+          "source": "associated-token"
+        }
+      }
+    },
+    {
+      "signature": "5Zg2F8dB7EmoJJukLPfWjWVzA2ZUk7TgMdKxZVzDwEbdLuExzwBCt51iPa2VsLAo2dykxn3rqhYEiTfYgVhuf8nm",
+      "category": "anchor-account",
+      "file": "5Zg2F8dB7EmoJJukLPfWjWVzA2ZUk7TgMdKxZVzDwEbdLuExzwBCt51iPa2VsLAo2dykxn3rqhYEiTfYgVhuf8nm.json",
+      "failingInstructionIndex": 2,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(3012)|term9YPb9mzAsABaqN71A4xdbxHmpBNZavpBiQKZzN3|",
+      "note": "Anchor AccountNotInitialized (3012) on account `nonce_account`: The program expected this account to be already initialized.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "term9YPb9mzAsABaqN71A4xdbxHmpBNZavpBiQKZzN3",
+        "handler": "ValidateNonce",
+        "errorName": "AccountNotInitialized",
+        "errorNumber": 3012,
+        "site": null,
+        "account": "nonce_account"
+      }
+    },
+    {
+      "signature": "659vA8EYamGpet1TA75j7u6FZvKfHZwTZSGzG3gpbbHWNhFRSDKpJgL5AsFYWsFs3B42NCWCNA1WnpjWqe5cn11J",
+      "category": "anchor-account",
+      "file": "659vA8EYamGpet1TA75j7u6FZvKfHZwTZSGzG3gpbbHWNhFRSDKpJgL5AsFYWsFs3B42NCWCNA1WnpjWqe5cn11J.json",
+      "failingInstructionIndex": 2,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(3012)|ord1qJZ3DB52s9NoG8nuoacW85aCyNvECa5kAqcBVBu|",
+      "note": "Anchor AccountNotInitialized (3012) on account `pod_meta`: The program expected this account to be already initialized.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "ord1qJZ3DB52s9NoG8nuoacW85aCyNvECa5kAqcBVBu",
+        "handler": "Reclaim",
+        "errorName": "AccountNotInitialized",
+        "errorNumber": 3012,
+        "site": null,
+        "account": "pod_meta"
+      },
+      "phase4": {
+        "namedAccounts": false
+      }
+    },
+    {
+      "signature": "66XeGxDAvunh3XDLUMB1Y1QPguP7Jk4xVgdwhMdZ141SqWsWzywTnnLgU4erjHFWNC2uNEYw3QR4sya3Gn6muLom",
+      "category": "native-program",
+      "file": "66XeGxDAvunh3XDLUMB1Y1QPguP7Jk4xVgdwhMdZ141SqWsWzywTnnLgU4erjHFWNC2uNEYw3QR4sya3Gn6muLom.json",
+      "failingInstructionIndex": 2,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "InvalidAccountData|TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA|",
+      "note": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA failed: invalid account data for instruction",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "handler": null,
+        "errorName": "InvalidAccountData",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "caW5pWAPBpiyDERBaozuWdFBBARLuLExeQ4uvfbgCtDnBwVbAh3Su43Mu4kyQbCtpD1RnBWBPKbhcNop41WqnEj",
+      "category": "custom-error",
+      "file": "caW5pWAPBpiyDERBaozuWdFBBARLuLExeQ4uvfbgCtDnBwVbAh3Su43Mu4kyQbCtpD1RnBWBPKbhcNop41WqnEj.json",
+      "failingInstructionIndex": 3,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "Custom(5457)|ojh19ojaKduoJZuaJADhcVGp4xt1TcdAvZmpVsCorch|",
+      "note": "ojh19ojaKduoJZuaJADhcVGp4xt1TcdAvZmpVsCorch failed: custom program error: 0x1551",
+      "phase1": {
+        "confidence": "unknown",
+        "program": "ojh19ojaKduoJZuaJADhcVGp4xt1TcdAvZmpVsCorch",
+        "handler": null,
+        "errorName": null,
+        "errorNumber": 5457,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "r1ejH71hytkFEn8Z9CUBiw9DvDgZvZ3PfZdAZrkVnnDiq7sLtPRRn4jGRm4QGRhkjG45qHc8V64J6L9uUgofu4N",
+      "category": "runtime-error",
+      "file": "r1ejH71hytkFEn8Z9CUBiw9DvDgZvZ3PfZdAZrkVnnDiq7sLtPRRn4jGRm4QGRhkjG45qHc8V64J6L9uUgofu4N.json",
+      "failingInstructionIndex": 0,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "InvalidInstructionData|EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih|",
+      "note": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih failed: invalid instruction data",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "EtrnLzgbS7nMMy5fbD42kXiUzGg8XQzJ972Xtk1cjWih",
+        "handler": null,
+        "errorName": "InvalidInstructionData",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    },
+    {
+      "signature": "z877g62VTkQwdMAq9yND1bjRobPs8DWJ6SP77MDVM1LUFKwyqkP3KtNjRX6yqfhjBCHkcyVGeXySeDmSvQfywrQ",
+      "category": "compute-exhaustion",
+      "file": "z877g62VTkQwdMAq9yND1bjRobPs8DWJ6SP77MDVM1LUFKwyqkP3KtNjRX6yqfhjBCHkcyVGeXySeDmSvQfywrQ.json",
+      "failingInstructionIndex": 0,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "distinctnessKey": "ProgramFailedToComplete|LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo|",
+      "note": "Compute budget exhausted in LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo; the program was cut off mid-execution.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+        "handler": "Swap2",
+        "errorName": "ProgramFailedToComplete",
+        "errorNumber": null,
+        "site": null,
+        "account": null
+      }
+    }
+  ]
+}

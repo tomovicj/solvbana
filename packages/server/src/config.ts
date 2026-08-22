@@ -24,6 +24,31 @@ const ConfigSchema = Type.Object({
   SOLANA_RPC_URL: Type.String({ minLength: 1 }),
   /** Optional archive endpoint for signatures older than the primary node's retention. */
   SOLANA_ARCHIVE_RPC_URL: Type.Optional(Type.String({ minLength: 1 })),
+  /**
+   * Verified-build registry, used to map a deployed binary's hash to a repository
+   * and commit. Set to an empty string to disable the lookup — the diagnosis then
+   * says so rather than quietly omitting source provenance.
+   */
+  SOLVBANA_VERIFY_REGISTRY_URL: Type.String({ default: 'https://verify.osec.io' }),
+  /**
+   * Directory backing the artifact store, holding IDLs and program binaries
+   * developers have uploaded.
+   *
+   * Roughly 94% of the programs that fail on mainnet publish neither an on-chain
+   * IDL nor a verified build, so for those this is the only route to an error
+   * name. Unset disables the store entirely, and a diagnosis says so rather than
+   * quietly omitting the possibility.
+   */
+  SOLVBANA_ARTIFACT_DIR: Type.Optional(Type.String({ minLength: 1 })),
+  /**
+   * Largest request body accepted, in bytes.
+   *
+   * Fastify defaults to 1MB, which rejects most real program uploads: corpus
+   * binaries reach 1.5MB of ELF, and base64 adds a third again. The default here
+   * is sized for that with room to spare rather than left to be discovered as a
+   * 413 on a developer's first upload.
+   */
+  SOLVBANA_MAX_BODY_BYTES: Type.Integer({ minimum: 1024, default: 32 * 1024 * 1024 }),
 });
 
 export type AppConfig = Static<typeof ConfigSchema>;
@@ -76,6 +101,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ConfigResult {
   }
   if (config.SOLANA_ARCHIVE_RPC_URL !== undefined && !isHttpUrl(config.SOLANA_ARCHIVE_RPC_URL)) {
     urlErrors.push('SOLANA_ARCHIVE_RPC_URL: must be an http(s) URL');
+  }
+  // Empty is the documented way to turn the registry off, so it is not a bad URL.
+  if (
+    config.SOLVBANA_VERIFY_REGISTRY_URL !== '' &&
+    !isHttpUrl(config.SOLVBANA_VERIFY_REGISTRY_URL)
+  ) {
+    urlErrors.push('SOLVBANA_VERIFY_REGISTRY_URL: must be an http(s) URL, or empty to disable');
   }
   if (urlErrors.length > 0) return { ok: false, errors: urlErrors };
 

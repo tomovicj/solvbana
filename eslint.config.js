@@ -31,8 +31,17 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ['fastify', 'fastify/*', '@fastify/*', 'node:http', 'node:https', 'node:net'],
-              message: '@solvbana/core must not depend on HTTP or any web framework.',
+              group: [
+                'fastify',
+                'fastify/*',
+                '@fastify/*',
+                'node:http',
+                'node:https',
+                'node:net',
+                '@solvbana/server',
+              ],
+              message:
+                '@solvbana/core must not depend on HTTP, any web framework, or its own consumers.',
             },
           ],
         },

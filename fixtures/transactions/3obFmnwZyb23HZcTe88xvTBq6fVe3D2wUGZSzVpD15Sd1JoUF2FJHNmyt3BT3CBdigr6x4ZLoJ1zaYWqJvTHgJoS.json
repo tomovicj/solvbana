@@ -1,0 +1,105 @@
+{
+  "transaction": {
+    "signatures": [
+      "3obFmnwZyb23HZcTe88xvTBq6fVe3D2wUGZSzVpD15Sd1JoUF2FJHNmyt3BT3CBdigr6x4ZLoJ1zaYWqJvTHgJoS"
+    ],
+    "message": {
+      "header": {
+        "numRequiredSignatures": 1,
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 12
+      },
+      "accountKeys": [
+        "59twxRxos5CYqGGXLdkxjSc7yDj4greJKL32hiYQyKaR",
+        "5a4VY3h1Vnm63HfrhtHCG7piZnFQF4gzdZi6AX7rTWHj",
+        "EmJp44WrEUyFNHUkCVAS87DfzJHx4z5UDcxZCKckea84",
+        "CXQ8okYE9qBMf4mvUtc4spiRLv3ZaoiEsSparatLKPaa",
+        "APthH3WPH2UDu8G8DiN3yWmFC3U6BcgdP8hH1RjbYn7w",
+        "97VhuEes8ExokBvG7hxyexpFPGzZu18SZERVKseqVV9",
+        "App3Ch6s6TUYZALEo2dLyowGfwKfDsskvkjjgXJeYSbX",
+        "noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV",
+        "cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK",
+        "BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY",
+        "11111111111111111111111111111111",
+        "6HW8dXjtiTGkD4jzXs7igdFmZExPpmwUrRN5195xGup",
+        "Cf5tmmFZ4D31tviuJezHdFLf5WF7yFvzfxNyftKsqTwr",
+        "DTebQCyKAnSLug7vS791UHUDt8XyumnyLgwNTvQEmscY",
+        "BmM5ak8EnUHoF69JQFwmsBnrWYtvGmJjodmx66GmzSse",
+        "ComputeBudget111111111111111111111111111111",
+        "ANFTVQBEyWF27FLx3LKCvZk3nWudUKhsT7uNxamUAD7c"
+      ],
+      "recentBlockhash": "5geGzikotbyGYXZVA7WJA6p2rK7V2QJeTEX9MNXJzBPJ",
+      "instructions": [
+        {
+          "programIdIndex": 15,
+          "accounts": [],
+          "data": "FjL4FH",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 15,
+          "accounts": [],
+          "data": "3GAG5eogvTjV",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 16,
+          "accounts": [0, 5, 1, 2, 0, 3, 4, 6, 7, 8, 9, 10, 11, 10, 12, 13],
+          "data": "8t67YkkTR9nNaQoKvT2VPUJGHyqFNxxJiUM5AGax4AEBSJV7KHypQbyfRVDcucFkrAwqd2jskmgjucxRmL3yYGwsJuhsS2SzfRM28dfYzLLRcR7i3sbMSjBBvZe9tWFdDNetiE76UzGxXuRhTKB9DMdbqjp55H",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 9,
+          "accounts": [6, 0, 0, 14, 4, 7, 8, 10, 10, 12, 13],
+          "data": "4TWd9NNDcKY7eVjRtZyuQYT91ajSjdkGoaysTFSrtmKQyAbA9fgDyutDB8JM9xHzDsBKvhVduHqTR6d1k8LgyYfmmj9wHa1vQ6o87imxeH3cUzv1ChcGDbSmKDxt1a7U2235ZHcpMLCfFUa12ApVpD66BcXpqEw",
+          "stackHeight": 1
+        }
+      ]
+    }
+  },
+  "meta": {
+    "err": {
+      "InstructionError": [2, "ProgramFailedToComplete"]
+    },
+    "status": {
+      "Err": {
+        "InstructionError": [2, "ProgramFailedToComplete"]
+      }
+    },
+    "fee": 15000,
+    "preBalances": [
+      28378780, 1447680, 2964960, 0, 1134034560, 3199416240, 1559040, 1142792, 1142791, 1222432, 1,
+      1141440, 0, 0, 0, 1, 1141440
+    ],
+    "postBalances": [
+      28363780, 1447680, 2964960, 0, 1134034560, 3199416240, 1559040, 1142792, 1142791, 1222432, 1,
+      1141440, 0, 0, 0, 1, 1141440
+    ],
+    "innerInstructions": [],
+    "logMessages": [
+      "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "Program ComputeBudget111111111111111111111111111111 success",
+      "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+      "Program ComputeBudget111111111111111111111111111111 success",
+      "Program ANFTVQBEyWF27FLx3LKCvZk3nWudUKhsT7uNxamUAD7c invoke [1]",
+      "Program log: Instruction: WithdrawCnft",
+      "Program log: withdrawing cnft",
+      "Program log: panicked at 'index out of bounds: the len is 0 but the index is 0', src/state.rs:376:12",
+      "Program ANFTVQBEyWF27FLx3LKCvZk3nWudUKhsT7uNxamUAD7c consumed 19975 of 999700 compute units",
+      "Program ANFTVQBEyWF27FLx3LKCvZk3nWudUKhsT7uNxamUAD7c failed: SBF program panicked"
+    ],
+    "preTokenBalances": [],
+    "postTokenBalances": [],
+    "rewards": [],
+    "loadedAddresses": {
+      "writable": [],
+      "readonly": []
+    },
+    "computeUnitsConsumed": 20275,
+    "costUnits": 23964
+  },
+  "version": "legacy",
+  "slot": 439419596,
+  "transactionIndex": 260,
+  "blockTime": 1786791032
+}

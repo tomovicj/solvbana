@@ -1,9 +1,42 @@
 import Fastify, { type FastifyError } from 'fastify';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
+import {
+  createAccountSource,
+  createTransactionSource,
+  type AccountSource,
+  type TransactionSource,
+} from '@solvbana/core';
+import { createFilesystemArtifactStore, type WritableArtifactStore } from './artifacts/store.ts';
 import type { AppConfig } from './config.ts';
 import { errorBody } from './schemas/error.ts';
 import { registerHealthRoutes } from './routes/health.ts';
+import { registerArtifactRoutes } from './routes/artifacts.ts';
 import { registerDiagnoseRoutes } from './routes/diagnose.ts';
+
+export interface BuildAppOptions {
+  /**
+   * Override the RPC source. Tests pass a recorded fixture so the suite runs
+   * offline and deterministically; production leaves this unset.
+   */
+  source?: TransactionSource;
+  /**
+   * Override the account source used for source resolution.
+   *
+   * Left unset in a test, resolution simply does not run and the diagnosis is
+   * whatever the logs alone established — which is the behaviour every test
+   * written before Phase 2 already expects.
+   */
+  accounts?: AccountSource;
+  /**
+   * Override the artifact store.
+   *
+   * Tests pass an in-memory or temporary-directory store so the suite neither
+   * touches a configured path nor leaves anything behind. Left unset with no
+   * `SOLVBANA_ARTIFACT_DIR` configured, there is no store and uploads are
+   * refused rather than silently discarded.
+   */
+  artifacts?: WritableArtifactStore;
+}
 
 /**
  * Build a fully configured server without binding a port.
@@ -11,7 +44,7 @@ import { registerDiagnoseRoutes } from './routes/diagnose.ts';
  * Tests drive this through `app.inject()`, so they neither listen nor race on
  * ports. `listen` lives in `index.ts` and nowhere else.
  */
-export function buildApp(config: AppConfig) {
+export function buildApp(config: AppConfig, options: BuildAppOptions = {}) {
   const app = Fastify({
     logger: {
       level: config.LOG_LEVEL,
@@ -19,6 +52,7 @@ export function buildApp(config: AppConfig) {
         ? { transport: { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss' } } }
         : {}),
     },
+    bodyLimit: config.SOLVBANA_MAX_BODY_BYTES,
   }).withTypeProvider<TypeBoxTypeProvider>();
 
   app.decorate('config', config);
@@ -46,8 +80,31 @@ export function buildApp(config: AppConfig) {
       .send(errorBody('not_found', `Route ${request.method} ${request.url} not found.`));
   });
 
+  const source =
+    options.source ??
+    createTransactionSource({
+      rpcUrl: config.SOLANA_RPC_URL,
+      archiveRpcUrl: config.SOLANA_ARCHIVE_RPC_URL,
+    });
+
+  const accounts =
+    options.accounts ??
+    (options.source === undefined
+      ? createAccountSource({ rpcUrl: config.SOLANA_RPC_URL })
+      : undefined);
+
+  const artifacts =
+    options.artifacts ??
+    (config.SOLVBANA_ARTIFACT_DIR === undefined
+      ? undefined
+      : createFilesystemArtifactStore(config.SOLVBANA_ARTIFACT_DIR));
+
   registerHealthRoutes(app);
-  registerDiagnoseRoutes(app);
+  registerArtifactRoutes(app, artifacts, accounts);
+  registerDiagnoseRoutes(app, source, accounts, artifacts, {
+    registryUrl: config.SOLVBANA_VERIFY_REGISTRY_URL,
+    verifySource: true,
+  });
 
   return app;
 }
