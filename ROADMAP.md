@@ -78,7 +78,9 @@ Note the corpus systematically under-represents the degrade paths. Harvested fix
 
 That is a statement about the recorded snapshots, not about mainnet. Between recording them and the Phase 4 work two of the 24 live programs redeployed — Whirlpool to slot 440170207 and ORE to 439924903, against snapshots read at roughly 439652000 — so a live diagnosis of those same signatures now refuses at the deployment check. Roughly 8% of the programs in two days. `upgraded-since` is the ordinary outcome for anything but a fresh signature, and the frozen snapshots are the only reason the suite did not quietly start describing different binaries.
 
-This makes `pnpm snapshot` a trap rather than a routine refresh: re-running it today would flip Whirlpool to `upgraded-since` and delete the corpus's only live-plus-IDL-plus-`anchor-builtin` coverage. It should refuse to overwrite a snapshot whose `lastDeploySlot` has moved, and report what it found instead.
+`pnpm snapshot` was a trap rather than a routine refresh, and now refuses: a snapshot whose `lastDeploySlot` has moved is reported rather than overwritten, the run exits non-zero, and `--force` is required to replace one deliberately. Re-running it unguarded would have flipped Whirlpool to `upgraded-since` and deleted the corpus's only live-plus-IDL-plus-`anchor-builtin` coverage.
+
+Run against mainnet after the guard landed, **8 of the 27 recorded programs had redeployed** — Whirlpool, Jupiter, both Raydium programs, ORE and three more — against snapshots read at roughly 439652000, about three days earlier. The two-in-two-days figure above was the first measurement of the same drift; 30% in three days is the rate to plan around. The remaining 19 were byte-identical, and are left untouched rather than rewritten, so the script is idempotent and a real change stays visible in a diff.
 
 ---
 

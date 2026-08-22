@@ -79,7 +79,7 @@ Node/TypeScript pnpm workspace, ESM throughout:
 | `pnpm test` / `pnpm test:watch` | Vitest |
 | `pnpm harvest` | Add mainnet failures to the fixture corpus. Manual only, never CI |
 | `pnpm record <sig>` | Add one named signature to the corpus |
-| `pnpm snapshot` | Record the program, ProgramData header and IDL accounts every corpus program resolves through. Manual only, never CI |
+| `pnpm snapshot` | Record the program, ProgramData header and IDL accounts every corpus program resolves through. **Refuses** to overwrite a snapshot whose deployment slot has moved, and exits non-zero when it does — `--force` to replace one deliberately. Unchanged snapshots are left alone rather than rewritten. Manual only, never CI |
 | `pnpm coverage` | Diagnose live mainnet failures and report the confidence distribution and what blocked each unnamed one. Manual only, never CI |
 
 Single test file: `pnpm vitest run packages/server/test/health.test.ts`. Single test by name: add `-t "returns ok"`.
