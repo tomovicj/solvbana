@@ -1,7 +1,7 @@
 /**
  * Record the on-chain state source resolution reads, one file per program.
  *
- * Usage: `pnpm snapshot`
+ * Usage: `pnpm snapshot [--force]`
  *
  * Every question Phase 2 asks — was this binary upgraded since the transaction,
  * does the program publish an IDL, does its hash match a verified build — is a
@@ -18,6 +18,11 @@
  * upgrade; committing that per program would be absurd. The hash and the trimmed
  * length are recorded as facts instead, and the hashing code path is covered by a
  * small synthetic fixture.
+ *
+ * Re-running this is not a routine refresh. A snapshot whose deployment slot has
+ * moved is refused rather than overwritten, because the fixtures recorded against
+ * it would silently start asserting something else. `--force` when replacing one
+ * is what you actually mean.
  *
  * Manual only, never CI.
  */
@@ -184,6 +189,87 @@ async function snapshot(url: string, programId: string): Promise<ProgramSnapshot
   return snap;
 }
 
+/** The deployment slot recorded in a snapshot's ProgramData header, if it has one. */
+function deploySlotOf(snap: ProgramSnapshot): bigint | null {
+  if (snap.programDataHeader === null) return null;
+  return Buffer.from(snap.programDataHeader.data, 'base64').readBigUInt64LE(4);
+}
+
+/**
+ * Why a fresh read must not replace the recorded one.
+ *
+ * The corpus is only honest because its snapshots are frozen. "Upgraded between
+ * the failing slot and the snapshot slot" is a fact about two fixed numbers and
+ * stays true forever; a snapshot refreshed after a redeploy silently converts
+ * that fixture into a different test, or deletes the case it was recorded for.
+ *
+ * Two of the corpus's programs redeployed within two days of the last snapshot,
+ * so this is the ordinary outcome rather than an edge case. Re-running this
+ * script unguarded would flip them to `upgraded-since` and take the only
+ * live-plus-IDL coverage with them.
+ *
+ * Returns the refusal, or `null` when the fresh read agrees with the record.
+ */
+function refuseOverwrite(existing: ProgramSnapshot, fresh: ProgramSnapshot): string | null {
+  const before = deploySlotOf(existing);
+  const after = deploySlotOf(fresh);
+
+  if (before !== null && after !== null && before !== after) {
+    return (
+      `deployment slot moved ${String(before)} -> ${String(after)}: the recorded binary is no ` +
+      'longer deployed, and overwriting would describe a different program'
+    );
+  }
+
+  if (before !== null && after === null) {
+    return 'the ProgramData account is no longer readable, but the snapshot records one';
+  }
+
+  if (existing.idl !== null && fresh.idl === null) {
+    return 'the recorded IDL is no longer published, and overwriting would delete that coverage';
+  }
+
+  return null;
+}
+
+/**
+ * Whether a fresh read says anything the recorded one does not.
+ *
+ * Everything but `readAtSlot` is compared, and by serialization rather than by a
+ * field list, so a field added to {@link ProgramSnapshot} later cannot silently
+ * fall outside the check. `readAtSlot` alone always differs and means nothing on
+ * its own: rewriting 19 files to advance one number is churn that makes a real
+ * change harder to see in a diff, and leaves the corpus dirty after every run.
+ */
+function sameState(a: ProgramSnapshot, b: ProgramSnapshot): boolean {
+  const stable = (snap: ProgramSnapshot): string =>
+    JSON.stringify(snap, (key, value: unknown) => (key === 'readAtSlot' ? undefined : value));
+  return stable(a) === stable(b);
+}
+
+/** The snapshot already on disk, or `null` if this program has never been recorded. */
+async function existingSnapshot(programId: string): Promise<ProgramSnapshot | null> {
+  try {
+    return JSON.parse(await readFile(snapshotPath(programId), 'utf8')) as ProgramSnapshot;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+function snapshotPath(programId: string): string {
+  return join(PROGRAMS_DIR, `${programId}.json`);
+}
+
+/**
+ * Overwrite a snapshot whose chain state has moved.
+ *
+ * Deliberate only. Refreshing a moved snapshot is sometimes right — after
+ * re-harvesting the fixtures that depend on it — but it is never right by
+ * accident, which is what an unguarded re-run makes it.
+ */
+const force = process.argv.includes('--force');
+
 const url = rpcUrl();
 const manifest = JSON.parse(await readFile(MANIFEST_PATH, 'utf8')) as {
   entries: { phase1?: { program?: string | null } }[];
@@ -200,26 +286,64 @@ const programIds = [
 
 await mkdir(PROGRAMS_DIR, { recursive: true });
 
+let written = 0;
+let unchanged = 0;
+const refused: string[] = [];
+const failed: string[] = [];
+
 for (const programId of programIds) {
   try {
     const snap = await snapshot(url, programId);
-    await writeFile(
-      join(PROGRAMS_DIR, `${programId}.json`),
-      `${JSON.stringify(snap, null, 2)}\n`,
-      'utf8',
-    );
-    const deployed =
-      snap.programDataHeader === null
-        ? 'no-programdata'
-        : String(Buffer.from(snap.programDataHeader.data, 'base64').readBigUInt64LE(4));
+    const existing = await existingSnapshot(programId);
+    const refusal = existing === null ? null : refuseOverwrite(existing, snap);
+
+    if (refusal !== null && !force) {
+      refused.push(`${programId}: ${refusal}`);
+      console.log(`${programId.padEnd(45)} REFUSED  ${refusal}`);
+      await sleep(400);
+      continue;
+    }
+
+    if (existing !== null && sameState(existing, snap)) {
+      unchanged += 1;
+      console.log(`${programId.padEnd(45)} unchanged`);
+      await sleep(400);
+      continue;
+    }
+
+    await writeFile(snapshotPath(programId), `${JSON.stringify(snap, null, 2)}\n`, 'utf8');
+    written += 1;
+
+    const deployed = deploySlotOf(snap);
     console.log(
-      `${programId.padEnd(45)} read@${String(snap.readAtSlot)} deploy@${deployed} ` +
-        `idl:${snap.idl === null ? 'no' : 'yes'}`,
+      `${programId.padEnd(45)} read@${String(snap.readAtSlot)} ` +
+        `deploy@${deployed === null ? 'no-programdata' : String(deployed)} ` +
+        `idl:${snap.idl === null ? 'no' : 'yes'}` +
+        (refusal === null ? '' : `  (--force over: ${refusal})`),
     );
   } catch (error) {
-    console.error(`${programId}: ${error instanceof Error ? error.message : String(error)}`);
+    const message = error instanceof Error ? error.message : String(error);
+    failed.push(`${programId}: ${message}`);
+    console.error(`${programId}: ${message}`);
   }
   await sleep(400);
 }
 
-console.log(`\nSnapshotted ${String(programIds.length)} programs into fixtures/programs/.`);
+console.log(
+  `\nWrote ${String(written)} of ${String(programIds.length)} programs into fixtures/programs/; ` +
+    `${String(unchanged)} were already current.`,
+);
+
+if (refused.length > 0) {
+  console.error(`\nRefused ${String(refused.length)} snapshot(s) whose chain state has moved:`);
+  for (const line of refused) console.error(`  ${line}`);
+  console.error(
+    '\nThe fixtures that depend on these were recorded against the old state, so refreshing ' +
+      'them changes what those tests assert. Re-harvest the affected signatures first, or pass ' +
+      '--force if replacing the snapshot is what you actually mean to do.',
+  );
+}
+
+// Loud rather than a line in a scroll-back: a partial snapshot run that looked
+// like a successful one is how the corpus would drift without anyone noticing.
+if (refused.length > 0 || failed.length > 0) process.exitCode = 1;
