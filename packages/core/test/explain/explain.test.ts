@@ -12,6 +12,7 @@ import { PROGRAM, failedTransaction, instruction } from './helpers.ts';
 
 const UNDECODED: Finding = {
   program: PROGRAM,
+  programSource: 'logs',
   handler: null,
   handlerSource: null,
   error: { code: null, name: null, message: null, naming: 'none' },

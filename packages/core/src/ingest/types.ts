@@ -165,6 +165,15 @@ export interface FailedTransaction {
   /** Top-level instructions, with CPI children nested underneath. */
   instructions: InstructionNode[];
   /**
+   * Whether `meta.innerInstructions` was reported at all.
+   *
+   * False means an instruction with no children proves nothing: the record is
+   * silent about CPI structure rather than reporting its absence. Anything that
+   * reasons from a *missing* CPI — as attributing the failing program from the
+   * instruction index does — must check this before treating empty as empty.
+   */
+  innerInstructionsRecorded: boolean;
+  /**
    * Lamport balances per account, from `meta.preBalances` / `meta.postBalances`.
    *
    * Covers every account the transaction loaded, so it is routinely longer than

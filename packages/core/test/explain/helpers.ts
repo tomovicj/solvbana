@@ -73,6 +73,7 @@ export function failedTransaction(
     },
     error: { kind: 'instruction-error', index: 0, error: { kind: 'custom', code: 1 } },
     instructions: options.instructions ?? [],
+    innerInstructionsRecorded: true,
     lamports: lamports.map((value, index) => ({ index, pre: value, post: value })),
     tokenBalances: options.tokenBalances ?? [],
     logs: { truncated: false, absent: true, lines: [] },

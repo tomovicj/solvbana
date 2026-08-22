@@ -5,6 +5,7 @@ import {
   clearResolutionCache,
   diagnose,
   reviveRawTransaction,
+  type AccountSource,
   type TransactionSource,
 } from '@solvbana/core';
 import { corpusAccounts, readJson } from './fixtures.ts';
@@ -178,6 +179,59 @@ describe('diagnose', () => {
     const result = await diagnose(SIGNATURE, { source });
     expect(result.confidence).toBe('unknown');
     expect(result.reasons[0]).toMatch(/boom/);
+  });
+
+  it('resolves the program it read from the instruction index', async () => {
+    // The payoff for attributing a program with no logs: source resolution has
+    // something to resolve, which is the only route from a bare code to a name.
+    // Proved by what the account source was actually asked for, rather than by
+    // an outcome a missing snapshot would make unreadable.
+    clearResolutionCache();
+    const asked: string[] = [];
+    const accounts: AccountSource = {
+      fetchAccount: (address) => {
+        asked.push(address);
+        return Promise.resolve(null);
+      },
+      fetchAccountPrefix: (address) => {
+        asked.push(address);
+        return Promise.resolve(null);
+      },
+    };
+
+    const result = await diagnose(SIGNATURE, {
+      source: fixtureSource('synthetic', 'no-logs-no-cpi.json'),
+      accounts,
+    });
+
+    expect(asked).toContain('A2kWsYn598CtPFEGpP363D5uPZThHu4kBk1qaaajDvMM');
+    expect(result.finding?.programSource).toBe('instruction-index');
+  });
+
+  it('does not resolve anything when no program could be attributed', async () => {
+    clearResolutionCache();
+    const asked: string[] = [];
+    const accounts: AccountSource = {
+      fetchAccount: (address) => {
+        asked.push(address);
+        return Promise.resolve(null);
+      },
+      fetchAccountPrefix: (address) => {
+        asked.push(address);
+        return Promise.resolve(null);
+      },
+    };
+
+    const result = await diagnose(SIGNATURE, {
+      source: fixtureSource('synthetic', 'no-logs-with-cpi.json'),
+      accounts,
+    });
+
+    expect(asked).toEqual([]);
+    expect(result.finding?.program).toBeNull();
+    // The summary must not restate as fact the attribution that was refused.
+    expect(result.summary).toMatch(/addressed to/);
+    expect(result.summary).not.toMatch(/failed in/);
   });
 
   it('says when the answer came from the archive endpoint', async () => {
