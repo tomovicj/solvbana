@@ -109,19 +109,22 @@ The blocker is that verified builds are rare, not that static analysis is hard. 
 
 ### What the artifact path reaches
 
-`pnpm coverage` over 200 live failures, sampled at most 6 per block across 34 blocks so no single busy block dominates:
+`pnpm coverage` over 200 live failures, capped per block so no single busy block dominates. Two runs, before and after the failing program is attributed from the instruction index when the logs name none:
 
-| | |
-| --- | --- |
-| `unknown` | 77.5% |
-| `variant-only` | 17.0% |
-| `exact` | 5.5% |
-| **blocked: program publishes no IDL and none was uploaded** | **62.0%** |
-| blocked: no failing program identified | 15.5% |
+| what blocked the unnamed failures | before | after |
+| --- | --- | --- |
+| **program publishes no IDL and none was uploaded** | **62.0%** | **85.5%** |
+| no failing program identified | 15.5% | **0%** |
 
-That 62% is the whole case for the artifact path: it is not a gap inference could close, it is programs declining to say what their error codes mean. An upload closes it for one program at a time, which is exactly the developer-debugging-their-own-program case the README describes.
+**Read the blocker composition, not the confidence split.** Every unnamed failure is now attributed to a specific program and blocked on that program publishing nothing — the engine-side gap is closed, and what remains is entirely the ecosystem one.
 
-The corpus reads 13% `unknown` against this 77.5%. Both numbers are correct and they measure different things — the corpus is one hand-checked instance of each failure shape, not a sample of traffic. Keep them apart.
+The confidence distribution is far too noisy at this sample size to carry a claim. Two 200-failure runs taken minutes apart read 72.5% and 85.5% `unknown`, and 12.5% against 4.5% `exact`, because `exact` comes from panics and how many panics a given 25 blocks contain is traffic, not capability. Quoting a single run's split as an improvement would be exactly the overclaim this project exists to avoid.
+
+That 85.5% is the whole case for the artifact path: it is not a gap inference could close, it is programs declining to say what their error codes mean. An upload closes it for one program at a time, which is exactly the developer-debugging-their-own-program case the README describes.
+
+The corpus reads 13% `unknown` against this. Both numbers are correct and they measure different things — the corpus is one hand-checked instance of each failure shape, not a sample of traffic. Keep them apart.
+
+One trap the measurement itself had. Attributing more programs means resolution runs on far more of the sample, and at the old 120ms pacing 17% of a run came back rate-limited. Those were counted as a diagnostic blocker, which would have had the project understate its own reach and believe the number. Throttling is now bucketed apart, warned about, and exits non-zero, and the default pacing is 400ms.
 
 **Done when:** a `Custom(6001)` failure resolves to one or two `require!` sites in the correct handler, with the source excerpt shown.
 
