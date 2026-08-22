@@ -9,6 +9,7 @@ import {
   walkInstructions,
   type Analysis,
   type Confidence,
+  type ProgramSource,
 } from '@solvbana/core';
 
 /**
@@ -30,6 +31,13 @@ const FIXTURES = join(import.meta.dirname, '..', '..', '..', 'fixtures');
 interface Phase1Expectation {
   confidence: Confidence;
   program: string | null;
+  /**
+   * How the program was established, where the fixture pins it.
+   *
+   * Optional because every harvested fixture has logs and would say `logs`;
+   * the synthetic entries are where the alternative is exercised.
+   */
+  programSource?: ProgramSource | null;
   handler: string | null;
   errorName: string | null;
   errorNumber: number | null;
@@ -81,6 +89,16 @@ function expectMatchesPhase1(analysis: Analysis, expected: Phase1Expectation, la
 
   expect(analysis.confidence, `${label} confidence`).toBe(expected.confidence);
   expect(finding.program, `${label} program`).toBe(expected.program);
+  // The provenance is null exactly when the program is. Checked for every
+  // fixture rather than only the ones that pin a value, because a program
+  // reported without saying where it came from is the failure mode the field
+  // exists to prevent.
+  expect(finding.programSource === null, `${label} programSource nullity`).toBe(
+    finding.program === null,
+  );
+  if (expected.programSource !== undefined) {
+    expect(finding.programSource, `${label} programSource`).toBe(expected.programSource);
+  }
   expect(finding.handler, `${label} handler`).toBe(expected.handler);
   expect(finding.error.name, `${label} error name`).toBe(expected.errorName);
   expect(finding.error.code, `${label} error number`).toBe(expected.errorNumber);
@@ -322,6 +340,41 @@ describe('synthetic edge cases', () => {
       name: 'InsufficientFunds',
       naming: 'native-table',
     });
+  });
+
+  it('names the failing program from the instruction index when no CPI ran', () => {
+    // With no logs there is no frame, but `meta.innerInstructions` is recorded
+    // and holds no group for the failing instruction. That is positive evidence
+    // it made no cross-program call, so the program it addressed is the one that
+    // failed — read from the record, not inferred from it.
+    const analysis = analyzeFixture('synthetic-no-cpi', 'synthetic', 'no-logs-no-cpi.json');
+
+    expect(analysis.finding.program).toBe('A2kWsYn598CtPFEGpP363D5uPZThHu4kBk1qaaajDvMM');
+    expect(analysis.finding.programSource).toBe('instruction-index');
+    expect(analysis.reasons.join(' ')).toMatch(/made no cross-program call/);
+    // Naming the program is not naming the error: the code stays a number.
+    expect(analysis.confidence).toBe('unknown');
+    expect(analysis.finding.error.code).toBe(6001);
+    expect(analysis.finding.error.name).toBeNull();
+  });
+
+  it('refuses to name a program when the failing instruction made a CPI', () => {
+    const analysis = analyzeFixture('synthetic-with-cpi', 'synthetic', 'no-logs-with-cpi.json');
+
+    expect(analysis.finding.program).toBeNull();
+    expect(analysis.finding.programSource).toBeNull();
+    expect(analysis.reasons.join(' ')).toMatch(/passed the error along/);
+  });
+
+  it('treats an unrecorded meta.innerInstructions as silence, not as proof of no CPI', () => {
+    // `no-logs.json` carries `innerInstructions: null`. Its instruction has no
+    // children for exactly the same reason the fixture above does — but here the
+    // record never said, and an empty tree built from silence proves nothing.
+    const analysis = analyzeFixture('synthetic-no-logs', 'synthetic', 'no-logs.json');
+
+    expect(analysis.finding.program).toBeNull();
+    expect(analysis.finding.programSource).toBeNull();
+    expect(analysis.reasons.join(' ')).toMatch(/no meta.innerInstructions/);
   });
 
   it('still reports what meta.err names when the logs are absent', () => {

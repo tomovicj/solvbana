@@ -74,6 +74,7 @@ export type {
   Finding,
   HandlerSource,
   PanicClass,
+  ProgramSource,
 } from './analyze/types.ts';
 
 export {

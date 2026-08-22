@@ -151,6 +151,7 @@ const FailedTransactionSchema = Type.Object({
   accounts: AccountKeysSchema,
   error: TransactionErrorSchema,
   instructions: Type.Array(InstructionSchema),
+  innerInstructionsRecorded: Type.Boolean(),
   lamports: Type.Array(LamportBalanceSchema),
   tokenBalances: Type.Array(TokenBalanceSchema),
   logs: LogStreamSchema,
@@ -291,6 +292,7 @@ const ResolutionSchema = Type.Object({
 
 const FindingSchema = Type.Object({
   program: NullableString,
+  programSource: Type.Union([Type.Literal('logs'), Type.Literal('instruction-index'), Type.Null()]),
   handler: NullableString,
   handlerSource: Type.Union([Type.Literal('logged'), Type.Literal('discriminator'), Type.Null()]),
   error: DecodedErrorSchema,
@@ -555,6 +557,7 @@ function toTransactionWire(transaction: FailedTransaction): FailedTransactionWir
       data: node.data,
       cpiDepthUnavailable: node.cpiDepthUnavailable,
     })),
+    innerInstructionsRecorded: transaction.innerInstructionsRecorded,
     lamports: transaction.lamports.map((row) => ({
       index: row.index,
       pre: String(row.pre),
@@ -704,6 +707,7 @@ function toResolutionWire(resolution: Resolution): ResolutionWire {
 function toFindingWire(finding: Finding): FindingWire {
   return {
     program: finding.program,
+    programSource: finding.programSource,
     handler: finding.handler,
     handlerSource: finding.handlerSource,
     error: finding.error,

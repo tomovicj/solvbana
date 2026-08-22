@@ -66,6 +66,7 @@ export function normalizeTransaction(raw: RawTransaction, signature: string): Fa
     accounts,
     error: parseTransactionError(meta?.err ?? null),
     instructions: tree.nodes,
+    innerInstructionsRecorded: tree.innerInstructionsRecorded,
     lamports: lamportBalancesFrom(raw),
     tokenBalances: tokenBalancesFrom(raw),
     logs,

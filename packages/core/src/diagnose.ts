@@ -147,9 +147,15 @@ function describeFailure(transaction: FailedTransaction, finding: Finding): stri
 /**
  * One-line statement of what failed.
  *
- * The program named is the one that *originated* the failure, which for a CPI is
- * not the program the failing top-level instruction addresses. Naming the outer
- * program would point the reader at code that only passed the error along.
+ * Two phrasings, and the difference between them is load-bearing. "failed in X"
+ * claims X *originated* the failure, which is only true of a program the finding
+ * actually attributed. When nothing could be attributed the sentence falls back
+ * to naming the program the instruction was addressed to — a fact about the
+ * message rather than about where the failure arose — because for a CPI those
+ * are different programs and the outer one may only have passed the error along.
+ *
+ * Saying "failed in" for the fallback would restate as fact precisely what
+ * `analyze` refused to conclude, in the one line most likely to be read.
  */
 function summarize(transaction: FailedTransaction, finding: Finding): string {
   const { instructions } = transaction;
@@ -160,13 +166,19 @@ function summarize(transaction: FailedTransaction, finding: Finding): string {
     return `Transaction failed with ${description}.`;
   }
 
-  const program = finding.program ?? instructions[index]?.programId ?? 'an unresolved program';
+  const position = `Instruction ${String(index + 1)} of ${String(instructions.length)}`;
+
+  if (finding.program === null) {
+    const addressed = instructions[index]?.programId;
+    return addressed === undefined || addressed === null
+      ? `${position} failed with ${description}. The failing program could not be identified.`
+      : `${position}, addressed to ${addressed}, failed with ${description}. Which program ` +
+          'originated the failure could not be established.';
+  }
+
   const handler = finding.handler === null ? '' : ` (handler ${finding.handler})`;
 
-  return (
-    `Instruction ${String(index + 1)} of ${String(instructions.length)} failed in ` +
-    `${program}${handler} with ${description}.`
-  );
+  return `${position} failed in ${finding.program}${handler} with ${description}.`;
 }
 
 /**

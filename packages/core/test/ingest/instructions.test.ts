@@ -97,4 +97,17 @@ describe('buildInstructionTree', () => {
     const { nodes } = buildInstructionTree([instruction(99)], [], accounts);
     expect(nodes[0]?.programId).toBeNull();
   });
+
+  it('distinguishes recorded-and-empty inner instructions from unrecorded ones', () => {
+    // Both leave every node childless, and the difference is the difference
+    // between proof and assumption for anything reasoning from a missing CPI.
+    const recorded = buildInstructionTree([instruction(1)], [], accounts);
+    expect(recorded.innerInstructionsRecorded).toBe(true);
+    expect(recorded.degradations).toHaveLength(0);
+
+    const unrecorded = buildInstructionTree([instruction(1)], null, accounts);
+    expect(unrecorded.innerInstructionsRecorded).toBe(false);
+    expect(unrecorded.nodes[0]?.children).toHaveLength(0);
+    expect(unrecorded.degradations[0]).toMatch(/no `meta.innerInstructions`/);
+  });
 });

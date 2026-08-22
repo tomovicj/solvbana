@@ -12,6 +12,19 @@ export interface RawInstruction {
 
 export interface InstructionTree {
   nodes: InstructionNode[];
+  /**
+   * Whether the RPC reported `meta.innerInstructions` at all.
+   *
+   * The distinction between "recorded, and this instruction made no CPI" and
+   * "not recorded" is invisible in the tree itself — both leave `children`
+   * empty — and it is the difference between proof and assumption. An empty
+   * `children` under a recorded group means no CPI ran, which is a fact about
+   * the execution; an empty `children` because nothing was recorded means only
+   * that the record is silent.
+   *
+   * Anything that reasons from the *absence* of a CPI has to check this first.
+   */
+  innerInstructionsRecorded: boolean;
   degradations: string[];
 }
 
@@ -75,12 +88,21 @@ function nestInner(
  */
 export function buildInstructionTree(
   outer: readonly RawInstruction[],
-  innerGroups: readonly { index: number; instructions: readonly RawInstruction[] }[],
+  innerGroups: readonly { index: number; instructions: readonly RawInstruction[] }[] | null,
   accounts: AccountKeys,
 ): InstructionTree {
   const degradations: string[] = [];
 
   const nodes = outer.map((raw, outerIndex) => toNode(raw, outerIndex, 1, accounts));
+
+  if (innerGroups === null) {
+    degradations.push(
+      'The RPC returned no `meta.innerInstructions`, so this transaction records no CPI ' +
+        'structure. An instruction with no children here means the record is silent, not that ' +
+        'the instruction made no cross-program call.',
+    );
+    return { nodes, innerInstructionsRecorded: false, degradations };
+  }
 
   for (const group of innerGroups) {
     const parent = nodes[group.index];
@@ -110,14 +132,21 @@ export function buildInstructionTree(
     );
   }
 
-  return { nodes, degradations };
+  return { nodes, innerInstructionsRecorded: true, degradations };
 }
 
-/** Pull the tree inputs off a raw response and build it. */
+/**
+ * Pull the tree inputs off a raw response and build it.
+ *
+ * `innerInstructions` is passed through as `null` when it is absent rather than
+ * defaulted to an empty list. Collapsing the two makes a transaction the RPC
+ * said nothing about look exactly like one that provably made no CPI, which is
+ * the difference between a fact and a guess for anything reading the tree.
+ */
 export function instructionTreeFrom(raw: RawTransaction, accounts: AccountKeys): InstructionTree {
   return buildInstructionTree(
     raw.transaction.message.instructions,
-    raw.meta?.innerInstructions ?? [],
+    raw.meta?.innerInstructions ?? null,
     accounts,
   );
 }

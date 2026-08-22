@@ -1,0 +1,44 @@
+{
+  "_comment": "Hand-written. Same shape as no-logs-no-cpi.json except that instruction 0 made a cross-program call. With no logs the record cannot say whether the outer program failed or the callee did, so no program may be named — naming the outer one would name a program that may only have passed the error along.",
+  "slot": 300000011,
+  "blockTime": null,
+  "version": "legacy",
+  "transaction": {
+    "signatures": [
+      "5TnRbWqKyMvZgHcXdLpUaJfSoNrEiBtCwYkQzVhGmPdXjLuAeRsFnTwBqMcYoZiKvHdGpNxWrUtSbLaJeQfCmYvZ"
+    ],
+    "message": {
+      "accountKeys": [
+        "FjfcqJ1yW6jTLp1roCNxZWm12R5rYq9RDJfCrSLitnyD",
+        "7wYyyULsqR1YRf9Js9YNCBG16wZG2Se5CWhhmqFf44Nv",
+        "CcRCg6qkPLVe1gmVkPw5jSC6k2NRi6yxswCJ5ePJn6rY"
+      ],
+      "header": {
+        "numRequiredSignatures": 1,
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 2
+      },
+      "recentBlockhash": "EkSnNWid2cvwEVnVx9aBqawnmiCNiDgp3gUdkDPTKN1N",
+      "instructions": [{ "programIdIndex": 1, "accounts": [0], "data": "3Bxs4h24hBtQy9rw" }]
+    }
+  },
+  "meta": {
+    "err": { "InstructionError": [0, { "Custom": 6001 }] },
+    "fee": 5000,
+    "preBalances": [1000000000, 1, 1],
+    "postBalances": [999995000, 1, 1],
+    "innerInstructions": [
+      {
+        "index": 0,
+        "instructions": [
+          { "programIdIndex": 2, "accounts": [0], "data": "3Bxs4h24hBtQy9rw", "stackHeight": 2 }
+        ]
+      }
+    ],
+    "logMessages": null,
+    "preTokenBalances": [],
+    "postTokenBalances": [],
+    "rewards": null,
+    "status": { "Err": { "InstructionError": [0, { "Custom": 6001 }] } }
+  }
+}

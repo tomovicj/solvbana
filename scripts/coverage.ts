@@ -20,6 +20,7 @@
 import {
   createAccountSource,
   diagnose,
+  failingInstructionIndex,
   reviveRawTransaction,
   type Confidence,
   type Diagnosis,
@@ -112,6 +113,30 @@ function sourceFor(raw: RawTransaction): TransactionSource {
 }
 
 /**
+ * Why no program could be named as the failing one.
+ *
+ * Reported as one bucket this collapsed three unrelated situations, two of which
+ * are facts about the record rather than gaps in the engine. A transaction-level
+ * failure names no instruction at all and therefore no program — there is
+ * nothing to identify. Absent logs are the ledger declining to say. Only the
+ * third case, where logs exist and were read but no program frame ever closed,
+ * is the engine failing to extract something the record holds.
+ *
+ * Keeping them apart is what stops an ecosystem fact from being read as a
+ * defect, which is the same reason the corpus and live distributions are
+ * reported separately.
+ */
+function unattributed(diagnosis: Diagnosis): string {
+  const transaction = diagnosis.transaction;
+  if (transaction === undefined) return 'no transaction record';
+  if (failingInstructionIndex(transaction.error) === null) {
+    return 'transaction-level failure, no instruction named';
+  }
+  if (transaction.logs.absent) return 'no logs recorded';
+  return 'logs recorded but no program frame closed';
+}
+
+/**
  * Why this diagnosis did not name the failure.
  *
  * Classified from what resolution recorded rather than from the error text, so
@@ -121,7 +146,7 @@ function sourceFor(raw: RawTransaction): TransactionSource {
  */
 function blockedBy(diagnosis: Diagnosis): string {
   const resolution = diagnosis.finding?.resolution;
-  if (diagnosis.finding?.program === null) return 'no failing program identified';
+  if (diagnosis.finding?.program === null) return unattributed(diagnosis);
   if (resolution === undefined) {
     const failed = diagnosis.reasons.find((reason) =>
       reason.startsWith('Source resolution failed'),

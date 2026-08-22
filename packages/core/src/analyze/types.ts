@@ -118,9 +118,30 @@ export type HandlerSource =
   /** Matched the instruction's leading 8 bytes against the IDL's discriminators. */
   | 'discriminator';
 
+/**
+ * How the failing program was established.
+ *
+ * The two are not equivalent and the difference matters to a reader. A log frame
+ * names the program that *originated* the failure, however deep the CPI stack
+ * went. The instruction index names the program the failing top-level
+ * instruction addressed, which is only the same program when the record proves
+ * no CPI ran underneath it — and that proof is a precondition for ever setting
+ * this to `instruction-index`.
+ */
+export type ProgramSource =
+  /** Read from the `failed:` line of a program frame in the log stream. */
+  | 'logs'
+  /**
+   * Read from the instruction `meta.err` names, having established from
+   * `meta.innerInstructions` that the instruction made no cross-program call.
+   */
+  | 'instruction-index';
+
 export interface Finding {
   /** The program that originated the failure — the innermost one, not the caller. */
   program: string | null;
+  /** `null` exactly when `program` is. */
+  programSource: ProgramSource | null;
   handler: string | null;
   /** `null` exactly when `handler` is. */
   handlerSource: HandlerSource | null;

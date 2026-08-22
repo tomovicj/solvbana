@@ -1,5 +1,6 @@
 import type { Confidence } from '../confidence.ts';
 import type { CandidateSite } from '../diagnosis.ts';
+import { failingInstructionIndex } from '../ingest/error.ts';
 import type { FailedTransaction, InstructionError } from '../ingest/types.ts';
 import { anchorErrorIn, comparisonIn, handlerIn, type AnchorError } from './anchor.ts';
 import { computeFailureIn, explainCompute } from './compute.ts';
@@ -7,13 +8,27 @@ import { explainAnchor } from './explain.ts';
 import { attributedFrame, buildFrames, type Frame } from './frames.ts';
 import { explainRuntimeVariant, isNativeProgram, nativeError } from './native.ts';
 import { explainPanic, panicIn } from './panic.ts';
-import type { DecodedError, Finding, HandlerSource } from './types.ts';
+import type { DecodedError, Finding, HandlerSource, ProgramSource } from './types.ts';
 
 /** The frame-derived fields every branch of the cascade shares. */
 interface FindingBase {
   program: string | null;
+  programSource: ProgramSource | null;
   handler: string | null;
   handlerSource: HandlerSource | null;
+}
+
+/**
+ * Which program failed, and how that was established.
+ *
+ * `note` carries the sentence explaining the answer — including when the answer
+ * is a refusal, since "the record does not say" is a more useful output than a
+ * silent `null`.
+ */
+interface Attribution {
+  program: string | null;
+  source: ProgramSource | null;
+  note: string | null;
 }
 
 export interface Analysis {
@@ -60,14 +75,109 @@ function site(
  *   the program did not name stays a number until Phase 2 resolves an IDL.
  */
 export function analyze(transaction: FailedTransaction): Analysis {
+  const frame = attributedFrame(buildFrames(transaction.logs));
+  const attribution = attribute(transaction, frame);
+  const analysis = analyzeAttributed(transaction, frame, attribution);
+
+  return attribution.note === null
+    ? analysis
+    : { ...analysis, reasons: [...analysis.reasons, attribution.note] };
+}
+
+/**
+ * Establish which program failed.
+ *
+ * The log stream is the strong source and is used whenever it produced a frame:
+ * it names the program that *originated* the failure, however deep the CPI stack
+ * went, which for a CPI is not the program the failing top-level instruction
+ * addressed.
+ *
+ * With no frame — logs off, or a stream that never closed a program — the
+ * transaction record can still answer, but only under a proof. `meta.err` names
+ * the failing top-level instruction, and if `meta.innerInstructions` records
+ * that this instruction made no cross-program call, then the program it
+ * addressed is necessarily the program that failed: there was nowhere else for
+ * the failure to arise. That is a read from the record rather than an inference,
+ * which is the only reason it is allowed at all.
+ *
+ * Every other shape refuses and says why. In particular an absent
+ * `meta.innerInstructions` is not an empty one — a record silent about CPI
+ * structure cannot prove a CPI did not happen, and treating silence as absence
+ * is how a plausible wrong program gets named.
+ */
+function attribute(transaction: FailedTransaction, frame: Frame | null): Attribution {
+  if (frame !== null) return { program: frame.programId, source: 'logs', note: null };
+
+  const index = failingInstructionIndex(transaction.error);
+  // A transaction-level failure names no instruction, so there is no program to
+  // identify rather than one that could not be identified.
+  if (index === null) return { program: null, source: null, note: null };
+
+  const node = transaction.instructions[index];
+  if (node === undefined || node.programId === null) {
+    return {
+      program: null,
+      source: null,
+      note:
+        `The logs name no failing program, and instruction ${String(index + 1)} — the one ` +
+        'meta.err blames — could not be resolved to a program address either, so there is ' +
+        'nothing to attribute the failure to.',
+    };
+  }
+
+  if (!transaction.innerInstructionsRecorded) {
+    return {
+      program: null,
+      source: null,
+      note:
+        `The logs name no failing program. meta.err blames instruction ${String(index + 1)}, ` +
+        `which addresses ${node.programId}, but the RPC recorded no meta.innerInstructions for ` +
+        'this transaction, so there is no evidence that instruction made no cross-program call. ' +
+        'A CPI would put the failure in a different program, and a silent record is not evidence ' +
+        'that none happened.',
+    };
+  }
+
+  if (node.children.length > 0) {
+    const calls = node.children.length;
+    return {
+      program: null,
+      source: null,
+      note:
+        `The logs name no failing program. meta.err blames instruction ${String(index + 1)}, ` +
+        `which addresses ${node.programId}, but it made ${String(calls)} cross-program ` +
+        `call${calls === 1 ? '' : 's'} and the record does not say which of them failed. Naming ` +
+        'the outer program would name one that may only have passed the error along.',
+    };
+  }
+
+  return {
+    program: node.programId,
+    source: 'instruction-index',
+    note:
+      `The logs name no failing program, so ${node.programId} was read from instruction ` +
+      `${String(index + 1)}, the one meta.err blames. It made no cross-program call — ` +
+      'meta.innerInstructions records none for it — so the failure had nowhere else to arise. ' +
+      'This establishes the program, not a location within it.',
+  };
+}
+
+function analyzeAttributed(
+  transaction: FailedTransaction,
+  frame: Frame | null,
+  attribution: Attribution,
+): Analysis {
   const { logs, instructions } = transaction;
-  const frames = buildFrames(logs);
-  const frame = attributedFrame(frames);
-  const program = frame?.programId ?? null;
+  const program = attribution.program;
   const handler = frame === null ? null : handlerIn(frame);
   const code = customCode(instructionError(transaction));
 
-  const base = { program, handler, handlerSource: handler === null ? null : ('logged' as const) };
+  const base = {
+    program,
+    programSource: attribution.source,
+    handler,
+    handlerSource: handler === null ? null : ('logged' as const),
+  };
 
   // Absent logs leave no frames, so the log detectors below are skipped rather
   // than special-cased. What `meta.err` names on its own is still reported: the
