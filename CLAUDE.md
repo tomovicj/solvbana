@@ -4,13 +4,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-**Phases 0 (ingest), 1 (log analysis), 2 (source resolution) and 4 (explanation) are done.** `POST /diagnose` fetches a real transaction, normalizes it into a typed `FailedTransaction`, reads its logs for everything they disclose on their own, resolves the failing program — proving whether the deployed binary is the one that ran, fetching its IDL, and checking its hash against a verified-build registry — and then explains the failure from the transaction record and that IDL.
+**Phases 0 (ingest), 1 (log analysis), 2 (source resolution), 3 (narrowing, on uploaded source) and 4 (explanation) are done.** `POST /diagnose` fetches a real transaction, normalizes it into a typed `FailedTransaction`, reads its logs for everything they disclose on their own, resolves the failing program — proving whether the deployed binary is the one that ran, fetching its IDL, and checking its hash against a verified-build registry — and then explains the failure from the transaction record and that IDL.
 
 Against the 47-signature corpus that lands **7 `exact`, 34 `variant-only`, 6 `unknown`**. The `exact` answers are panics and `AnchorError thrown in <file>:<line>`, both locations the program printed about itself. The six remaining `unknown` are programs that publish no on-chain IDL, or whose ProgramData has been closed — undecoded by design rather than by omission.
 
 Developers can also **upload their own artifacts** for the programs that publish nothing — `POST /artifacts` takes an Anchor IDL and a compiled `.so`, and the IDL is read during diagnosis. `pnpm coverage` over 200 live mainnet failures leaves the great majority at `unknown`, and **every one of them is now blocked on the program publishing no IDL at all**. That is the gap uploads close, and it is not one inference could. Read the blocker composition rather than the confidence split: two runs minutes apart read 72.5% and 85.5% `unknown`, because how many panics a given 25 blocks contain is traffic rather than capability.
 
-**Phase 3's source half is deferred, and the reason is a measurement rather than a preference.** Its premise is fetching source at the verified commit Phase 2 resolves, and only 3 of the 24 live corpus programs have a verified build whose hash matches what is deployed. That is 4 of 47 transactions, none of which the phase would answer. The realistic unlock is a local source path, not the registry.
+**Phase 3 shipped on its second premise, not its first.** Fetching source at a verified commit stays deferred — only 3 of 24 live corpus programs have a verified build, covering 4 of 47 transactions and answering none of them. What shipped instead is `packages/core/src/narrow/`, over source uploaded through `POST /artifacts`.
+
+Two rules carry it:
+
+- **The filter is the error variant, not reachability.** The name is already established, so the question is only which lines raise *that* variant — a lexical index, not a call graph. Ranking is lexical containment in the failing handler and every rationale says so, because a site in a helper the handler calls is indistinguishable from one in an unrelated handler.
+- **An uploaded tree must prove it describes the program that ran**, by Anchor's `#[error_code]` numbering: codes run sequentially from 6000, so declaration order maps `Custom(n)` back to a name. Agreement with the independently established name means two unrelated sources concur; disagreement means a different revision and every candidate is refused. Explicit discriminants move the counter, as Rust does — without that, one pinned code misnumbers everything after it and refuses a correct tree.
+
+Confidence caps at `narrowed`: an uploaded tree is not hash-proven against the deployed binary, so `exact` stays reserved for locations the program printed about itself. **`withNarrowing` is the one enrichment that may change `confidence` and `candidates`** — `withExplanation` cannot, by construction, and a corpus test enforces that.
+
+The phase's own regression metric — how often the correct site is uniquely identified, and how often it is in the top three — **is not computable**, because no corpus program publishes source. `fixtures/source/` holds synthetic trees that score the mechanics and nothing more.
 
 The fixtures that can score seed-derivation work now exist: two `ConstraintSeeds` failures, harvested by matching the `Error Code:` line the program printed rather than the reserved code range. `ConstraintHasOne` was searched for across the same 300 blocks and did not occur — these variants are rare because each one means a broken client, which then gets fixed.
 
