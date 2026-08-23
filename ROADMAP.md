@@ -102,6 +102,12 @@ The blocker is that verified builds are rare, not that static analysis is hard. 
 
 Three further refusals, each reported rather than silent: no error name established and there is nothing to search for, which is 68% of live failures; the variant declared but never raised, so the tree is missing a file or the error comes from a dependency; the variant raised but never inside the failing handler, reported unranked because a helper call is something a lexical index cannot follow.
 
+**Anchor's own constraint errors are found by field, not by variant.** They are *generated* from `#[account(...)]` attributes, so nothing in a developer's source raises `ConstraintSeeds` and the throw-site index can never find one. That covered **11 of the corpus's 14 Anchor failures** — seven `AccountNotInitialized`, two `ConstraintSeeds`, one `ConstraintRaw`, one `ConstraintOwner` — all returning zero candidates for a reason that was true and useless. What Anchor gives instead is the offending field name, a stronger key than a variant ever was, and the declaration it points at carries the constraint expression.
+
+**The accounts struct is read from the handler's `Context<X>` parameter, not from its name.** Anchor conventionally names the struct after the handler, and a convention is precisely what this project declines to decode; the link is written in the signature. Two refusals guard it: the handler's struct not declaring the blamed field means the tree and the deployed binary disagree about this instruction, and without a handler the field name alone is accepted only when exactly one struct declares it.
+
+Note what the numbering proof cannot do here. These are Anchor's codes — 2006, 3012 — not the program's, so the tree's `#[error_code]` ordering says nothing about them and `proveSource` returns `unchecked` for every one. The field lookup is the whole of the evidence in that path, and each rationale says so rather than letting a reader assume the stronger check applied.
+
 **What this cannot yet measure.** The regression metric below asks how often the correct site is uniquely identified and how often it lands in the top three. That needs real trees for real corpus failures, and no corpus program publishes source — the same shortfall that deferred the phase originally, and the redesign does not fix it. The synthetic trees under `fixtures/source/` score the mechanics; the real number stays uncomputed until someone uploads a real tree. Do not read the passing suite as coverage of that question.
 
 - [x] Parse instruction data: first 8 bytes → discriminator → handler name (via IDL). Done in Phase 2 — Anchor programs log their handler name and Phase 1 reads it, and the discriminator covers the ones that do not
@@ -155,9 +161,9 @@ Built **from the transaction record and the program's published IDL**, with no s
 - [x] Instruction arguments decoded against the IDL's declared types
 - [x] Explanation templates per error category — what this error means, the usual causes, what to check
 - [x] Suggested fixes where the evidence is unambiguous
-- [ ] Render the failing source with surrounding context, throw site highlighted — waits on Phase 3, which is what produces a source tree
+- [ ] Render the failing source with surrounding context, throw site highlighted — the tree is now available, so this is no longer blocked; it is deferred as presentation. The candidate's file and line are reported and rendering them is the consumer's layer
 - [x] Read the `Left:` / `Right:` operands: which side the transaction passed and which the program required, proved either by matching an operand against the blamed account's recorded address or against a value the client encoded in the instruction data, plus the gap between two numbers. Reported unlabelled when the record proves neither
-- [ ] Show the constraint expression itself, alongside those operands — waits on Phase 3 for the source
+- [x] Show the constraint expression itself, alongside those operands — read from the `#[account(...)]` attribute on the field Anchor blamed, and carried on `Explanation.declaration` as data rather than prose
 - [ ] Owner and data length per account — not in the transaction record, and a current-state read would describe a different world than the one that failed
 - [ ] Shareable permalink per diagnosis — presentation, deferred with the rest of it
 
