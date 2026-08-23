@@ -1,5 +1,5 @@
 import type { Comparison } from '../analyze/types.ts';
-import type { AccountRow, ReadComparison } from './types.ts';
+import type { AccountRow, DecodedArg, ReadComparison } from './types.ts';
 
 /**
  * Read the `Left:` / `Right:` pair Anchor printed, and work out what it shows.
@@ -12,23 +12,31 @@ import type { AccountRow, ReadComparison } from './types.ts';
  * **Orientation is proven, never assumed.** Anchor emits the pair in a fixed
  * order in its own source, but that is a convention of one framework — the same
  * kind of thing as its reserved error-code ranges, which this project refuses to
- * decode. So the order is established from the record instead: if exactly one
- * operand is the address the blamed account actually holds, that operand is what
- * was passed and the other is what was required. When neither matches, or both
- * do, the pair is reported without roles.
+ * decode. So the order is established from the record instead, by either of two
+ * independent matches:
+ *
+ * 1. **An address.** If exactly one operand is the address the blamed account
+ *    actually holds, that operand is what was passed.
+ * 2. **An argument.** If exactly one decoded instruction argument carries an
+ *    operand's value, that operand is a value the client encoded and therefore
+ *    the side it supplied. This is what gives a *numeric* comparison an
+ *    orientation, where there is no address to match against.
+ *
+ * When neither fires the pair is reported without roles, and when both fire and
+ * disagree it is too — see `orientation`.
  *
  * That refusal is not hypothetical. Of the six corpus fixtures carrying a
- * comparison, two prove their orientation this way, three are integer
- * comparisons where orientation is not needed, and one — a `ConstraintOwner`
- * blaming an account the IDL never names — has no row to match against at all.
- * An assumed ordering would have labelled that last one confidently with nothing
- * behind it, and account owners are not in the transaction record to check
- * against.
+ * comparison, two prove their orientation by address and one — a
+ * `ConstraintOwner` blaming an account the IDL never names — has no row to match
+ * against at all. An assumed ordering would have labelled that last one
+ * confidently with nothing behind it, and account owners are not in the
+ * transaction record to check against.
  */
 export function readComparison(
   comparison: Comparison,
   blamed: string | null,
   accounts: readonly AccountRow[],
+  args: readonly DecodedArg[] = [],
 ): ReadComparison {
   const { left, right } = comparison;
   const account = blamed === null ? null : (accounts.find((row) => row.name === blamed) ?? null);
@@ -38,9 +46,81 @@ export function readComparison(
   // are equal, which proves nothing about which role each played.
   const matchesLeft = address !== null && address === left;
   const matchesRight = address !== null && address === right;
-  const passed = matchesLeft === matchesRight ? null : matchesLeft ? 'left' : 'right';
+  const byAddress = matchesLeft === matchesRight ? null : matchesLeft ? 'left' : 'right';
 
-  return { left, right, passed, account: address, numeric: numericGap(left, right) };
+  const argument = matchArgument(left, right, args);
+
+  return {
+    left,
+    right,
+    passed: orientation(byAddress, argument),
+    account: address,
+    argument,
+    numeric: numericGap(left, right),
+  };
+}
+
+/**
+ * Which side the transaction supplied, from whichever proof settled it.
+ *
+ * The two proofs are independent — one matches an operand against an account's
+ * recorded address, the other against a value the client encoded into the
+ * instruction data — so where both fire they are a cross-check rather than a
+ * ranking. Agreement confirms; disagreement means one of them is wrong about
+ * this transaction, and there is no basis for choosing which, so the answer
+ * goes back to unproven.
+ */
+function orientation(
+  byAddress: 'left' | 'right' | null,
+  argument: ReadComparison['argument'],
+): 'left' | 'right' | null {
+  const byArgument = argument?.side ?? null;
+  if (byAddress === null) return byArgument;
+  if (byArgument === null || byArgument === byAddress) return byAddress;
+  return null;
+}
+
+/**
+ * The instruction argument whose value an operand carried.
+ *
+ * A value the client encoded into the instruction data and that then appears as
+ * an operand is a value the client supplied, which is what makes this evidence
+ * rather than coincidence — but only when one argument is responsible. Two
+ * arguments holding the same number name none of them, so that refuses.
+ *
+ * Two claims come out of this and they are kept apart. Which argument a value
+ * came from is settled by a single matching argument. Which *side* the client
+ * supplied is settled only if that argument also matches one operand rather than
+ * both, which an equal pair never does — hence a nullable `side`.
+ */
+function matchArgument(
+  left: string,
+  right: string,
+  args: readonly DecodedArg[],
+): ReadComparison['argument'] {
+  const matched = args.flatMap((arg) => {
+    const value = arg.value;
+    if (value === null) return [];
+    const onLeft = sameValue(value, left);
+    const onRight = sameValue(value, right);
+    if (!onLeft && !onRight) return [];
+    return [{ name: arg.name, side: onLeft && onRight ? null : onLeft ? 'left' : 'right' }];
+  }) as { name: string; side: 'left' | 'right' | null }[];
+
+  return matched.length === 1 ? matched[0]! : null;
+}
+
+/**
+ * Whether a decoded argument and an operand are the same value.
+ *
+ * Compared as integers where both are, so a formatting difference between how
+ * `decodeArgs` renders a `u64` and how the program printed it cannot silently
+ * break the match. Falls back to exact text for everything else.
+ */
+function sameValue(argument: string, operand: string): boolean {
+  const a = asInteger(argument);
+  const b = asInteger(operand);
+  return a !== null && b !== null ? a === b : argument === operand;
 }
 
 /** The side the program required, when the record proved which side that is. */
