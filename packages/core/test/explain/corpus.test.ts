@@ -28,6 +28,7 @@ interface Entry {
       numeric: boolean;
       equal?: boolean;
       difference?: string;
+      argument?: { name: string; side: 'left' | 'right' | null };
       note: string;
     };
   };
@@ -188,6 +189,12 @@ describe('explaining the corpus', () => {
         expect(requiredSide(read!), `${label} required`).toBeNull();
       }
 
+      // The weaker of the two claims, and true more often: which argument
+      // carried a value, whether or not that settles which side supplied it.
+      expect(read?.argument ?? null, `${label} argument`).toEqual(
+        expected.comparison.argument ?? null,
+      );
+
       expect(read?.numeric !== null, `${label} numeric`).toBe(expected.comparison.numeric);
       if (expected.comparison.equal !== undefined) {
         expect(read?.numeric?.equal, `${label} equal`).toBe(expected.comparison.equal);
@@ -233,6 +240,7 @@ describe('explanation reach', () => {
       pda: 0,
       comparison: 0,
       oriented: 0,
+      argument: 0,
     };
 
     for (const entry of manifest.entries) {
@@ -244,6 +252,7 @@ describe('explanation reach', () => {
       if (explanation.guidance.fix !== null) counts.fix += 1;
       if (explanation.comparison !== null) counts.comparison += 1;
       if (explanation.comparison?.passed != null) counts.oriented += 1;
+      if (explanation.comparison?.argument != null) counts.argument += 1;
       for (const check of explanation.derivations) {
         if (check.source === 'associated-token' && check.status === 'match') counts.ataProven += 1;
         if (check.source === 'idl-pda' && check.status === 'match') counts.pda += 1;
@@ -254,13 +263,17 @@ describe('explanation reach', () => {
     expect(counts.accounts).toBeGreaterThanOrEqual(38);
     expect(counts.named).toBeGreaterThanOrEqual(19);
     expect(counts.args).toBeGreaterThanOrEqual(20);
-    expect(counts.fix).toBeGreaterThanOrEqual(24);
+    expect(counts.fix).toBeGreaterThanOrEqual(25);
     expect(counts.ataProven).toBeGreaterThanOrEqual(2);
     expect(counts.pda).toBeGreaterThanOrEqual(37);
     expect(counts.comparison).toBeGreaterThanOrEqual(6);
-    // Two, and the gap to six is the point rather than a shortfall: four of the
-    // pairs are either integers, which need no orientation, or blame an account
-    // the IDL never names, which leaves nothing to prove one against.
-    expect(counts.oriented).toBeGreaterThanOrEqual(2);
+    // Three, and the gap to six is the point rather than a shortfall. Two are
+    // proved by an address and one by an argument; of the rest, two are equal
+    // operands where matching an argument says which parameter the value came
+    // from but not which side, and one blames an account the IDL never names.
+    expect(counts.oriented).toBeGreaterThanOrEqual(3);
+    // Higher than `oriented` by exactly the equal-operand pair, which is the
+    // whole reason the two claims are reported separately.
+    expect(counts.argument).toBeGreaterThanOrEqual(3);
   });
 });

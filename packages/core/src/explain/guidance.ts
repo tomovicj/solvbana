@@ -1,6 +1,6 @@
 import type { Finding } from '../analyze/types.ts';
 import { passedSide, requiredSide } from './comparison.ts';
-import type { AccountRow, DerivationCheck, Guidance, ReadComparison } from './types.ts';
+import type { AccountRow, DecodedArg, DerivationCheck, Guidance, ReadComparison } from './types.ts';
 
 /**
  * Turn the evidence into what to do about it.
@@ -16,6 +16,7 @@ export function buildGuidance(
   accounts: readonly AccountRow[],
   derivations: readonly DerivationCheck[],
   comparison: ReadComparison | null = null,
+  args: readonly DecodedArg[] = [],
 ): Guidance {
   const { failure } = finding;
 
@@ -32,6 +33,10 @@ export function buildGuidance(
   if (comparison !== null) {
     return comparisonGuidance(finding, comparison, derivations);
   }
+
+  // A self-named error that printed no operands. The arguments are the last
+  // thing the record holds about it, and they are the inputs the client chose.
+  if (failure.kind === 'anchor') return argumentGuidance(finding, args);
 
   return {
     meaning: finding.explanation,
@@ -131,30 +136,52 @@ function comparisonGuidance(
  */
 function numericGuidance(finding: Finding, comparison: ReadComparison): Guidance {
   const numeric = comparison.numeric!;
+  const argument = comparison.argument;
+  // The parameter the client controls, when exactly one carried an operand.
+  // This is the difference between "a comparison failed" and "the number you
+  // passed for this argument is the one to change".
+  const named = argument === null ? '' : ` The value came from the ${argument.name} argument.`;
 
   if (numeric.equal) {
     return {
       meaning:
         `${finding.explanation} The two sides were equal, so the comparison failed on equality ` +
-        'rather than on magnitude.',
+        `rather than on magnitude.${named}`,
       causes: [
         'A strict comparison — require_gt! or require_neq! — given two equal values. The ' +
           'non-strict forms are require_gte! and require_eq!.',
-        'A value expected to have been set before this instruction ran that was still at its ' +
-          'initial value.',
+        argument === null
+          ? 'A value expected to have been set before this instruction ran that was still at its ' +
+            'initial value.'
+          : `${argument.name} was sent as ${comparison.left}, which the check requires it to be ` +
+            'strictly beyond rather than equal to. A client that leaves this at its default ' +
+            'sends exactly this.',
       ],
       fix:
-        'Decide whether equality should pass here. If it should, use the non-strict form of the ' +
-        'comparison; if it should not, the value the client sent is the thing to fix.',
+        argument === null
+          ? 'Decide whether equality should pass here. If it should, use the non-strict form of ' +
+            'the comparison; if it should not, the value the client sent is the thing to fix.'
+          : `Send a ${argument.name} the check can pass, or — if equality should be allowed — ` +
+            'use the non-strict form of the comparison in the program.',
     };
   }
 
   const percent = numeric.relative === null ? null : (numeric.relative * 100).toFixed(2);
+  const supplied = passedSide(comparison);
+  const computed = requiredSide(comparison);
+
+  // With an orientation, this stops being a gap between two anonymous numbers
+  // and becomes a statement about one input and one outcome.
+  const sides =
+    supplied === null || computed === null
+      ? ''
+      : ` The instruction supplied ${supplied}${argument === null ? '' : ` as ${argument.name}`} ` +
+        `and the program computed ${computed}.`;
 
   return {
     meaning:
       `${finding.explanation} The two sides differ by ${numeric.difference.toString()}` +
-      `${percent === null ? '' : `, which is ${percent}% of the larger`}.`,
+      `${percent === null ? '' : `, which is ${percent}% of the larger`}.${sides}`,
     causes: [
       'A bound the client computed from a quote that no longer held — pool state moves between ' +
         'quoting and landing, and the gap above is how far it moved.',
@@ -164,8 +191,41 @@ function numericGuidance(finding: Finding, comparison: ReadComparison): Guidance
     fix:
       percent === null
         ? 'Compare the two values above against what the client intended to send.'
-        : `Re-quote closer to send time, or widen the tolerance past ${percent}% if that gap is ` +
-          'acceptable for this trade.',
+        : `Re-quote closer to send time, or ${argument === null ? 'widen the tolerance' : `relax ${argument.name}`} ` +
+          `past ${percent}% if that gap is acceptable for this trade.`,
+  };
+}
+
+/**
+ * Guidance for a self-named error that printed no operands.
+ *
+ * The largest group in this class by distinct program: the error names itself,
+ * its `#[msg]` text says what it means, and nothing states the values that
+ * failed the check. What the record still holds is the arguments the client
+ * encoded, which are the inputs under their control — and the absence itself is
+ * worth naming, because the program chose a bare `require!` where the comparing
+ * forms would have logged both sides.
+ */
+function argumentGuidance(finding: Finding, args: readonly DecodedArg[]): Guidance {
+  const listed = args
+    .filter((arg) => arg.value !== null)
+    .map((arg) => `${arg.name} = ${arg.value!}`);
+
+  if (listed.length === 0) return { meaning: finding.explanation, causes: [], fix: null };
+
+  return {
+    meaning:
+      `${finding.explanation} The program did not print the values it compared, so what this ` +
+      `instruction supplied is what can be shown: ${listed.join(', ')}.`,
+    causes: [
+      'One of the arguments above did not satisfy a check the program made against state it ' +
+        'read at the failing slot. The record holds the arguments but not that state, so which ' +
+        'check failed is not determined here.',
+    ],
+    fix:
+      'Compare the arguments above against what the client intended to send. To make the next ' +
+      'failure self-explaining, raise this with require_eq! or require_gt! rather than a bare ' +
+      'require! — those log both operands, and this diagnosis would then name the values too.',
   };
 }
 
