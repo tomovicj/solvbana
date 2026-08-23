@@ -178,11 +178,16 @@
       },
       "phase4": {
         "comparison": {
-          "passed": null,
+          "passed": "right",
+          "required": "412250202354",
           "numeric": true,
           "equal": false,
           "difference": "16713353701",
-          "note": "Integer operands, so orientation is neither needed nor claimed. 428963556055 - 412250202354."
+          "argument": {
+            "name": "min_base_amount_out",
+            "side": "right"
+          },
+          "note": "The failing instruction's data is 25 bytes: an 8-byte discriminator, then 428963556055 as u64 LE at offset 16, then a 1-byte option. Right is therefore a value the client encoded and Left appears nowhere in the data, so Left is what the program computed."
         }
       }
     },
@@ -598,7 +603,11 @@
           "numeric": true,
           "equal": true,
           "difference": "0",
-          "note": "require_gt! given 0 and 0: the comparison failed on equality, not magnitude."
+          "argument": {
+            "name": "minimum_amount_out",
+            "side": null
+          },
+          "note": "require_gt! given 0 and 0: the comparison failed on equality, not magnitude. The failing instruction is a CPI child whose 24-byte data decodes to amount_in=1, minimum_amount_out=0, so the zero came from minimum_amount_out — but it equals both operands, so which side the client supplied stays unproven."
         }
       }
     },
@@ -630,7 +639,11 @@
           "numeric": true,
           "equal": true,
           "difference": "0",
-          "note": "require_gt! given 0 and 0: the comparison failed on equality, not magnitude."
+          "argument": {
+            "name": "minimum_amount_out",
+            "side": null
+          },
+          "note": "require_gt! given 0 and 0: the comparison failed on equality, not magnitude. The failing instruction is a CPI child whose 24-byte data decodes to amount_in=1, minimum_amount_out=0, so the zero came from minimum_amount_out — but it equals both operands, so which side the client supplied stays unproven."
         }
       }
     },
