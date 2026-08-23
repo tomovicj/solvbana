@@ -146,6 +146,8 @@ describe('the corpus with source resolution', () => {
     expect(buckets.get('exact') ?? 0).toBeGreaterThanOrEqual(7);
     expect(buckets.get('variant-only') ?? 0).toBeGreaterThanOrEqual(32);
     expect(buckets.get('unknown') ?? 0).toBeLessThanOrEqual(6);
+    // Resolution names errors; it never locates them. Only uploaded source
+    // reaches `narrowed`, and none of these fixtures has any.
     expect(buckets.get('narrowed') ?? 0).toBe(0);
   });
 });

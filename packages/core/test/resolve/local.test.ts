@@ -182,9 +182,10 @@ describe('diagnosing with an uploaded IDL', () => {
     expect((await diagnoseWithoutClearing(store)).name).toBe('VaultDrained');
   });
 
-  it('does not let an upload raise confidence past variant-only', async () => {
-    // Naming an error is not locating it, and an uploaded document locates
-    // nothing at all.
+  it('does not let an uploaded IDL raise confidence past variant-only', async () => {
+    // Naming an error is not locating it, and an IDL locates nothing at all.
+    // Uploaded *source* is the one artifact that does, and it reaches
+    // `narrowed` rather than `exact` — see `narrow/diagnose.test.ts`.
     const { confidence } = await diagnoseWith(uploadFor(OBSERVED));
 
     expect(confidence).not.toBe('exact');
