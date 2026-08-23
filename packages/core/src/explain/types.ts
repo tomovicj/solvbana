@@ -188,6 +188,36 @@ export interface BalanceDeltas {
   fee: bigint;
 }
 
+/**
+ * The `Left:` / `Right:` operand pair Anchor printed, read against the record.
+ *
+ * The raw pair already reaches the wire on `Finding.failure.comparison`. This is
+ * the interpretation of it: which side the transaction passed, which side the
+ * program required, and the gap between them when both are numbers.
+ *
+ * `passed` is the load-bearing field and it is `null` more often than not. It is
+ * set only when the record *proves* the orientation — see `readComparison` — so
+ * a consumer that reads it can trust it, and one that finds it `null` knows the
+ * operands are unlabelled rather than mislabelled.
+ */
+export interface ReadComparison {
+  left: string;
+  right: string;
+  /** Which side the record proves the transaction passed, when it proves one. */
+  passed: 'left' | 'right' | null;
+  /** The blamed account's recorded address, when a row was matched. */
+  account: string | null;
+  /** The gap between the operands, when both parse as integers. */
+  numeric: {
+    /** Absolute difference, so it does not depend on which side is which. */
+    difference: bigint;
+    /** True when the comparison failed on equality rather than on magnitude. */
+    equal: boolean;
+    /** The difference over the larger operand, or `null` when that is zero. */
+    relative: number | null;
+  } | null;
+}
+
 /** What this failure means and what to do about it. */
 export interface Guidance {
   /** What this class of failure means, in plain words. */
@@ -219,6 +249,17 @@ export interface Explanation {
   derivations: DerivationCheck[];
   compute: ComputeBreakdown | null;
   deltas: BalanceDeltas;
+  /**
+   * The operand pair Anchor printed, read against the record.
+   *
+   * Kept beside `derivations` rather than folded into one, because the two are
+   * different kinds of evidence. A `DerivationCheck` is an address this tier
+   * *computed* from declared seeds; this is an address the running program
+   * computed and *printed*. Merging them would put a read into a structure whose
+   * `seeds`, `bump` and `programId` fields describe a derivation that never
+   * happened.
+   */
+  comparison: ReadComparison | null;
   guidance: Guidance;
   /** Why each part is present, absent, or partial. */
   notes: string[];

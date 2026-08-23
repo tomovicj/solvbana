@@ -7,9 +7,25 @@ import { accountTable, nameableCount } from './accounts.ts';
 import { decodeArgs } from './args.ts';
 import { computeBreakdown } from './compute.ts';
 import { balanceDeltas } from './deltas.ts';
+import { readComparison } from './comparison.ts';
 import { checkAssociatedToken, checkIdlPdas } from './derive.ts';
 import { buildGuidance } from './guidance.ts';
-import type { DecodedArg, DerivationCheck, Explanation } from './types.ts';
+import type { AccountRow, DecodedArg, DerivationCheck, Explanation } from './types.ts';
+
+/**
+ * The blamed account and the operand pair, which travel together.
+ *
+ * Both come off the same `anchor` failure variant, and the comparison can only
+ * be oriented against the account table once the blamed name is in hand.
+ */
+function anchorEvidence(finding: Finding, accounts: readonly AccountRow[]) {
+  if (finding.failure.kind !== 'anchor') return { blamed: null, comparison: null };
+  const { account, comparison } = finding.failure;
+  return {
+    blamed: account,
+    comparison: comparison === null ? null : readComparison(comparison, account, accounts),
+  };
+}
 
 /**
  * The instruction the failing program ran, when the record identifies one
@@ -84,13 +100,17 @@ export async function explainFailure(
   }
 
   if (node === null) {
+    // No account table, so no row to orient the operands against — but the pair
+    // itself is still worth reading, and a numeric comparison never needed one.
+    const { comparison } = anchorEvidence(finding, []);
     return {
       accounts: [],
       args: null,
       derivations: [],
       compute,
       deltas,
-      guidance: buildGuidance(finding, [], []),
+      comparison,
+      guidance: buildGuidance(finding, [], [], comparison),
       notes,
     };
   }
@@ -135,7 +155,7 @@ export async function explainFailure(
   // The associated-token search is run only for the account the error blamed.
   // Running it across every account would return true but useless negatives for
   // the ones that were never meant to be token accounts.
-  const blamed = finding.failure.kind === 'anchor' ? finding.failure.account : null;
+  const { blamed, comparison } = anchorEvidence(finding, accounts);
   if (blamed !== null && !derivations.some((check) => check.account === blamed)) {
     const row = accounts.find((entry) => entry.name === blamed);
     if (row !== undefined) {
@@ -150,7 +170,8 @@ export async function explainFailure(
     derivations,
     compute,
     deltas,
-    guidance: buildGuidance(finding, accounts, derivations),
+    comparison,
+    guidance: buildGuidance(finding, accounts, derivations, comparison),
     notes,
   };
 }

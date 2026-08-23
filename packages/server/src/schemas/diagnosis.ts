@@ -408,12 +408,35 @@ const GuidanceSchema = Type.Object({
   fix: Type.Union([Type.String(), Type.Null()]),
 });
 
+/**
+ * The operand pair, read against the record.
+ *
+ * `difference` crosses as a string for the same reason every other amount here
+ * does: it is a `bigint` in core because Anchor prints `u64` values, and JSON has
+ * no bigint. `relative` is a genuine fraction and stays a number.
+ */
+const ReadComparisonSchema = Type.Object({
+  left: Type.String(),
+  right: Type.String(),
+  passed: Type.Union([Type.Literal('left'), Type.Literal('right'), Type.Null()]),
+  account: Type.Union([Type.String(), Type.Null()]),
+  numeric: Type.Union([
+    Type.Object({
+      difference: Type.String(),
+      equal: Type.Boolean(),
+      relative: Type.Union([Type.Number(), Type.Null()]),
+    }),
+    Type.Null(),
+  ]),
+});
+
 const ExplanationSchema = Type.Object({
   accounts: Type.Array(AccountRowSchema),
   args: Type.Union([Type.Array(DecodedArgSchema), Type.Null()]),
   derivations: Type.Array(DerivationCheckSchema),
   compute: Type.Union([ComputeBreakdownSchema, Type.Null()]),
   deltas: BalanceDeltasSchema,
+  comparison: Type.Union([ReadComparisonSchema, Type.Null()]),
   guidance: GuidanceSchema,
   notes: Type.Array(Type.String()),
 });
@@ -642,6 +665,19 @@ function toExplanationWire(explanation: Explanation): ExplanationWire {
       })),
       fee: String(explanation.deltas.fee),
     },
+    comparison:
+      explanation.comparison === null
+        ? null
+        : {
+            ...explanation.comparison,
+            numeric:
+              explanation.comparison.numeric === null
+                ? null
+                : {
+                    ...explanation.comparison.numeric,
+                    difference: String(explanation.comparison.numeric.difference),
+                  },
+          },
     guidance: explanation.guidance,
     notes: explanation.notes,
   };
