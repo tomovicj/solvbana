@@ -136,6 +136,14 @@ export {
   checkIdlPdas,
 } from './explain/derive.ts';
 export { buildGuidance } from './explain/guidance.ts';
+export { narrow, proveSource, type Narrowing, type SourceProof } from './narrow/narrow.ts';
+export {
+  indexSource,
+  type ErrorEnum,
+  type SourceIndex,
+  type ThrowForm,
+  type ThrowSite,
+} from './narrow/sites.ts';
 export type {
   AccountRow,
   BalanceDeltas,
@@ -232,6 +240,8 @@ export type {
   AccountSnapshot,
   AccountSource,
   ArtifactStore,
+  SourceFile,
+  SourceTree,
   Endpoint,
   FetchOutcome,
   NotFoundReason,

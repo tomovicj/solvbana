@@ -119,4 +119,27 @@ export interface ArtifactStore {
    * chain state the way an account at the Anchor-derived address is.
    */
   fetchIdl(programId: string): Promise<{ document: unknown } | null>;
+  /**
+   * The Rust source filed for a program, or `null` when none has been.
+   *
+   * Returned as raw text per file, unparsed, for the same reason `fetchIdl`
+   * returns an unparsed document: what arrives is whatever somebody uploaded,
+   * and the caller has to establish that it describes the program that ran
+   * before reading a line number out of it.
+   *
+   * Optional so an existing store keeps compiling and simply never offers
+   * source, which is the correct behaviour for one that has none.
+   */
+  fetchSource?(programId: string): Promise<SourceTree | null>;
+}
+
+/** One uploaded source file, with the path it was uploaded under. */
+export interface SourceFile {
+  /** Relative to the program's source root, always forward-slashed. */
+  path: string;
+  contents: string;
+}
+
+export interface SourceTree {
+  files: SourceFile[];
 }
