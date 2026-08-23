@@ -1,6 +1,6 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { elfHash, parseAddress, type ArtifactStore } from '@solvbana/core';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { elfHash, parseAddress, type ArtifactStore, type SourceFile } from '@solvbana/core';
 
 /**
  * What was stored, and under what name.
@@ -27,6 +27,23 @@ export interface WritableArtifactStore extends ArtifactStore {
   /** Files the binary under its own hash and reports what that came to. */
   putBinary(bytes: Uint8Array): Promise<StoredBinary>;
   fetchBinary(hash: string): Promise<Uint8Array | null>;
+  /** Replaces whatever source was filed for this program. */
+  putSource(programId: string, files: readonly SourceFile[]): Promise<number>;
+}
+
+/**
+ * A path that may be joined onto the source directory.
+ *
+ * The same stance the program id and hash validation already take: a name is
+ * proven safe before it is joined to a path, never sanitised afterwards. Only
+ * relative, forward-slashed `.rs` files, with no traversal segment and no
+ * leading slash or drive letter — anything else never reaches the filesystem.
+ */
+export function isSafeSourcePath(path: string): boolean {
+  if (!path.endsWith('.rs') || path.length > 400) return false;
+  if (path.startsWith('/') || /^[A-Za-z]:/.test(path)) return false;
+  if (path.includes('\\') || path.includes('\0')) return false;
+  return path.split('/').every((part) => part !== '' && part !== '.' && part !== '..');
 }
 
 /** Lowercase hex, 64 characters. Anything else never reaches the filesystem. */
@@ -53,6 +70,12 @@ const HASH_PATTERN = /^[0-9a-f]{64}$/;
 export function createFilesystemArtifactStore(directory: string): WritableArtifactStore {
   const idlDir = join(directory, 'idl');
   const binDir = join(directory, 'bin');
+  const srcDir = join(directory, 'src');
+
+  const sourceRoot = (programId: string): string | null => {
+    const parsed = parseAddress(programId);
+    return parsed.ok ? join(srcDir, parsed.address) : null;
+  };
 
   const idlPath = (programId: string): string | null => {
     const parsed = parseAddress(programId);
@@ -90,6 +113,31 @@ export function createFilesystemArtifactStore(directory: string): WritableArtifa
       }
     },
 
+    async fetchSource(programId) {
+      const root = sourceRoot(programId);
+      if (root === null) return null;
+
+      let names: string[];
+      try {
+        names = await readdir(root, { recursive: true });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+        throw error;
+      }
+
+      const files: SourceFile[] = [];
+      for (const name of names) {
+        const path = name.split('\\').join('/');
+        // Re-checked on the way out as well as in. The directory is a plain
+        // directory and what is read back is not necessarily what was written.
+        if (!isSafeSourcePath(path)) continue;
+        const raw = await readOrNull(join(root, path));
+        if (raw !== null) files.push({ path, contents: raw.toString('utf8') });
+      }
+
+      return files.length === 0 ? null : { files };
+    },
+
     async fetchBinary(hash) {
       const path = binPath(hash);
       if (path === null) return null;
@@ -117,6 +165,24 @@ export function createFilesystemArtifactStore(directory: string): WritableArtifa
       await writeFile(path, bytes);
 
       return { hash, bytes: bytes.length };
+    },
+
+    async putSource(programId, files) {
+      const root = sourceRoot(programId);
+      if (root === null) throw new TypeError(`Not a program address: ${programId}`);
+
+      let written = 0;
+      for (const file of files) {
+        if (!isSafeSourcePath(file.path)) {
+          throw new TypeError(`Refusing to store source under ${file.path}.`);
+        }
+        const path = join(root, file.path);
+        await mkdir(dirname(path), { recursive: true });
+        await writeFile(path, file.contents);
+        written += 1;
+      }
+
+      return written;
     },
   };
 }

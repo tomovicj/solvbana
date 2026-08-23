@@ -19,6 +19,7 @@ interface UploadBody {
     bytes: number;
     deployed: { kind: string; deployedHash?: string; reason?: string };
   } | null;
+  source: { stored: true; files: number; sites: number; errorEnums: number } | null;
   notes: string[];
 }
 
@@ -239,3 +240,82 @@ function chainWith(elf: Uint8Array): AccountSource {
     },
   };
 }
+
+describe('POST /artifacts with source', () => {
+  const SOURCE = {
+    'src/lib.rs':
+      '#[error_code]\npub enum DemoError {\n    Slipped,\n}\n\n' +
+      'pub fn sell(ctx: Context<Sell>) -> Result<()> {\n' +
+      '    require!(ctx.accounts.pool.open, DemoError::Slipped);\n    Ok(())\n}\n',
+  };
+
+  it('stores a tree and reports what it indexed', async () => {
+    const app = await appWithStore();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/artifacts',
+      payload: { programId: PROGRAM, source: SOURCE },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json<UploadBody>();
+    expect(body.source).toEqual({ stored: true, files: 1, sites: 1, errorEnums: 1 });
+    // Saying so at upload beats silence on every later diagnosis.
+    expect(body.notes.join(' ')).toContain('caps at `narrowed`');
+  });
+
+  it('reads the stored tree back through the port', async () => {
+    // The only test that exercises the transport and the port together: what the
+    // route writes has to be what a diagnosis later reads.
+    const directory = await mkdtemp(join(tmpdir(), 'solvbana-src-'));
+    directories.push(directory);
+    const store = createFilesystemArtifactStore(directory);
+    const app = testApp({ artifacts: store });
+
+    await app.inject({
+      method: 'POST',
+      url: '/artifacts',
+      payload: { programId: PROGRAM, source: SOURCE },
+    });
+
+    const tree = await store.fetchSource!(PROGRAM);
+    expect(tree?.files).toEqual([{ path: 'src/lib.rs', contents: SOURCE['src/lib.rs'] }]);
+  });
+
+  it('refuses a path that would escape the store directory', async () => {
+    // Validated before anything is joined onto a path, never sanitised after.
+    const app = await appWithStore();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/artifacts',
+      payload: { programId: PROGRAM, source: { '../../etc/passwd.rs': 'x' } },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json<ErrorBody>().error.code).toBe('unreadable_source');
+  });
+
+  it('refuses a file that is not Rust', async () => {
+    const app = await appWithStore();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/artifacts',
+      payload: { programId: PROGRAM, source: { 'Cargo.toml': 'x' } },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it('warns when the tree carries no error enum to prove itself with', async () => {
+    const app = await appWithStore();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/artifacts',
+      payload: { programId: PROGRAM, source: { 'src/lib.rs': 'pub fn nothing() {}\n' } },
+    });
+
+    const body = response.json<UploadBody>();
+    expect(body.source?.errorEnums).toBe(0);
+    expect(body.notes.join(' ')).toContain('No #[error_code] enum');
+  });
+});

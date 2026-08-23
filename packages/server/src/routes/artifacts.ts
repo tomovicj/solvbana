@@ -2,12 +2,22 @@ import {
   currentDeployment,
   elfHash,
   forgetProgram,
+  indexSource,
   parseAddress,
   parseIdlDocument,
   type AccountSource,
 } from '@solvbana/core';
 import type { App } from '../app.ts';
-import type { WritableArtifactStore } from '../artifacts/store.ts';
+import { isSafeSourcePath, type WritableArtifactStore } from '../artifacts/store.ts';
+
+/**
+ * Most source files accepted in one upload.
+ *
+ * A program's `src/` is tens of files; a thousand is somebody sending a whole
+ * workspace or a `target/` directory. The body limit already bounds total bytes,
+ * so this bounds the file *count* the indexer walks.
+ */
+const MAX_SOURCE_FILES = 1000;
 import { ArtifactsBody, ArtifactsResponse } from '../schemas/artifacts.ts';
 import { ErrorResponse, errorBody } from '../schemas/error.ts';
 
@@ -87,10 +97,10 @@ export function registerArtifactRoutes(
       }
 
       const body = request.body;
-      if (body.idl === undefined && body.binary === undefined) {
+      if (body.idl === undefined && body.binary === undefined && body.source === undefined) {
         return reply
           .code(400)
-          .send(errorBody('empty_upload', 'Send an `idl`, a `binary`, or both.'));
+          .send(errorBody('empty_upload', 'Send an `idl`, a `binary`, `source`, or any of them.'));
       }
 
       const identified = identify(body);
@@ -131,6 +141,62 @@ export function registerArtifactRoutes(
         );
       }
 
+      let source: ArtifactsResponse['source'] = null;
+      if (body.source !== undefined) {
+        const files = Object.entries(body.source).map(([path, contents]) => ({ path, contents }));
+
+        if (files.length === 0 || files.length > MAX_SOURCE_FILES) {
+          return reply
+            .code(400)
+            .send(
+              errorBody(
+                'unreadable_source',
+                `Send between 1 and ${String(MAX_SOURCE_FILES)} source files.`,
+              ),
+            );
+        }
+
+        // Validated before anything is joined onto a directory, which is the
+        // same stance the program id and hash checks already take.
+        const rejected = files.filter((file) => !isSafeSourcePath(file.path));
+        if (rejected.length > 0) {
+          return reply.code(400).send(
+            errorBody(
+              'unreadable_source',
+              'Every source path must be a relative, forward-slashed `.rs` file with no `..` ' +
+                'segment.',
+              rejected.slice(0, 5).map((file) => file.path),
+            ),
+          );
+        }
+
+        // Indexed at upload so the response can say what the tree actually
+        // yields. A tree with no throw sites and no error enum will never
+        // produce a candidate, and saying so now beats silence on every later
+        // diagnosis.
+        const index = indexSource({ files });
+        const written = await artifacts.putSource(programId, files);
+        source = {
+          stored: true,
+          files: written,
+          sites: index.sites.length,
+          errorEnums: index.enums.length,
+        };
+
+        notes.push(
+          'Uploaded source locates candidate lines for an error whose name is already ' +
+            'established; it never names one. It is not hash-proven against the deployed binary, ' +
+            'so a diagnosis using it caps at `narrowed` and never reaches `exact`.',
+        );
+        if (index.enums.length === 0) {
+          notes.push(
+            'No #[error_code] enum was found in the uploaded source, so the tree cannot be ' +
+              'checked against the error numbering the deployed program uses. Candidates from it ' +
+              'will say so.',
+          );
+        }
+      }
+
       let binary: ArtifactsResponse['binary'] = null;
       if (body.binary !== undefined) {
         const bytes = Uint8Array.from(Buffer.from(body.binary, 'base64'));
@@ -154,7 +220,7 @@ export function registerArtifactRoutes(
       // this the first diagnosis after an upload answers from before it.
       forgetProgram(programId);
 
-      return { programId, idl, binary, notes };
+      return { programId, idl, binary, source, notes };
     },
   );
 }
