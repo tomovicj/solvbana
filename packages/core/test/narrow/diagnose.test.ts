@@ -111,3 +111,82 @@ describe('diagnosing with uploaded source', () => {
     expect(diagnosis.candidates).toEqual([]);
   });
 });
+
+describe('diagnosing an account-attributed error with uploaded source', () => {
+  /**
+   * A real corpus failure: PumpSwap's `ConstraintSeeds` on
+   * `coin_creator_vault_authority`. This is the shape 11 of the corpus's 14
+   * Anchor failures take, and the one the throw-site index cannot see, because
+   * nothing in the source raises `ConstraintSeeds` — Anchor generates it.
+   */
+  const SEEDS_SIG =
+    '5GV9BFLXPfp5fCbBHyQRACjtMLPwoG663CMSaV4YxY58ZmBdhvWZv7LDzLFGLzzxnHeR3PDyeKDSK4WHrsnJN8Vy';
+  const PUMPSWAP = 'pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA';
+
+  /** The declaration, with the seed expression the record could not resolve. */
+  const TREE: SourceTree = {
+    files: [
+      {
+        path: 'src/instructions/buy.rs',
+        contents:
+          "#[derive(Accounts)]\npub struct BuyAccounts<'info> {\n" +
+          '    #[account(\n        seeds = [b"creator_vault", pool.coin_creator.as_ref()],\n        bump,\n    )]\n' +
+          "    pub coin_creator_vault_authority: UncheckedAccount<'info>,\n}\n\n" +
+          'pub fn buy(ctx: Context<BuyAccounts>) -> Result<()> {\n    Ok(())\n}\n',
+      },
+    ],
+  };
+
+  async function diagnoseSeeds(tree: SourceTree | null) {
+    clearResolutionCache();
+    return diagnose(SEEDS_SIG, {
+      source: {
+        fetchTransaction: () =>
+          Promise.resolve({
+            kind: 'found' as const,
+            raw: reviveRawTransaction(readJson('transactions', `${SEEDS_SIG}.json`)),
+            endpoint: 'primary' as const,
+          }),
+      },
+      accounts: corpusAccounts([PUMPSWAP]),
+      artifacts: {
+        fetchIdl: () => Promise.resolve(null),
+        fetchSource: () => Promise.resolve(tree),
+      },
+    });
+  }
+
+  it('returns the seed expression the transaction record could not resolve', async () => {
+    // The explanation tier reports this account's declared seeds as
+    // `unresolved`, because `pool.coin_creator` reads another account's current
+    // state. The source says what the seeds *are* regardless.
+    const diagnosis = await diagnoseSeeds(TREE);
+
+    expect(diagnosis.explanation?.declaration).toMatchObject({
+      field: 'coin_creator_vault_authority',
+      struct: 'BuyAccounts',
+      constraint: 'seeds = [b"creator_vault", pool.coin_creator.as_ref()]',
+    });
+    expect(diagnosis.candidates).toHaveLength(1);
+    expect(diagnosis.confidence).toBe('narrowed');
+  });
+
+  it('leaves the declared-seed check refusing, since the two are different claims', async () => {
+    // Reading the expression from source does not make the seeds resolvable:
+    // `pool.coin_creator` is still current state this tier will not fetch.
+    const diagnosis = await diagnoseSeeds(TREE);
+    const check = diagnosis.explanation?.derivations.find(
+      (entry) => entry.account === 'coin_creator_vault_authority',
+    );
+
+    expect(check?.status).toBe('unresolved');
+    expect(check?.blockedBy).toContain('pool.coin_creator');
+  });
+
+  it('reports no declaration when no source was uploaded', async () => {
+    const diagnosis = await diagnoseSeeds(null);
+
+    expect(diagnosis.explanation?.declaration ?? null).toBeNull();
+    expect(diagnosis.confidence).toBe('variant-only');
+  });
+});

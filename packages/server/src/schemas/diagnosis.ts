@@ -437,6 +437,23 @@ const ReadComparisonSchema = Type.Object({
   ]),
 });
 
+/**
+ * The source declaration Anchor blamed.
+ *
+ * The constraint expression is the point — `seeds = [b"vault", ...]` next to the
+ * runtime values earlier tiers established — and it crosses as data so a
+ * consumer reads it from a field rather than parsing it out of a rationale.
+ */
+const AccountDeclarationSchema = Type.Object({
+  file: Type.String(),
+  line: Type.Integer(),
+  field: Type.String(),
+  struct: Type.String(),
+  attributes: Type.Array(Type.String()),
+  constraint: Type.Union([Type.String(), Type.Null()]),
+  text: Type.String(),
+});
+
 const ExplanationSchema = Type.Object({
   accounts: Type.Array(AccountRowSchema),
   args: Type.Union([Type.Array(DecodedArgSchema), Type.Null()]),
@@ -444,6 +461,7 @@ const ExplanationSchema = Type.Object({
   compute: Type.Union([ComputeBreakdownSchema, Type.Null()]),
   deltas: BalanceDeltasSchema,
   comparison: Type.Union([ReadComparisonSchema, Type.Null()]),
+  declaration: Type.Union([AccountDeclarationSchema, Type.Null()]),
   guidance: GuidanceSchema,
   notes: Type.Array(Type.String()),
 });
@@ -556,6 +574,13 @@ export const DERIVATION_STATUS_SCHEMA_COVERS_CORE: Explanation['derivations'][nu
 export const COMPARISON_SCHEMA_COVERS_CORE: keyof NonNullable<
   Explanation['comparison']
 > extends keyof NonNullable<ExplanationWire['comparison']>
+  ? true
+  : never = true;
+
+/** The declaration's own fields, checked separately for the same reason. */
+export const DECLARATION_SCHEMA_COVERS_CORE: keyof NonNullable<
+  Explanation['declaration']
+> extends keyof NonNullable<ExplanationWire['declaration']>
   ? true
   : never = true;
 
@@ -687,6 +712,7 @@ function toExplanationWire(explanation: Explanation): ExplanationWire {
       })),
       fee: String(explanation.deltas.fee),
     },
+    declaration: explanation.declaration,
     comparison:
       explanation.comparison === null
         ? null

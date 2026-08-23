@@ -7,6 +7,7 @@ import { accountTable, nameableCount } from './accounts.ts';
 import { decodeArgs } from './args.ts';
 import { computeBreakdown } from './compute.ts';
 import { balanceDeltas } from './deltas.ts';
+import type { AccountDeclaration } from '../narrow/accounts.ts';
 import { readComparison } from './comparison.ts';
 import { checkAssociatedToken, checkIdlPdas } from './derive.ts';
 import { buildGuidance } from './guidance.ts';
@@ -76,6 +77,15 @@ export async function explainFailure(
   transaction: FailedTransaction,
   finding: Finding,
   idl: ResolvedIdl | null,
+  /**
+   * The source declaration narrowing located, when a tree was uploaded.
+   *
+   * Passed in rather than looked up, because this tier does no I/O and holds no
+   * artifact store. Narrowing has already read the tree by the time this runs;
+   * carrying its result here is what puts the constraint expression beside the
+   * runtime values without this tier learning how to fetch anything.
+   */
+  declaration: AccountDeclaration | null = null,
 ): Promise<Explanation> {
   const notes: string[] = [];
   const deltas = balanceDeltas(transaction);
@@ -115,6 +125,7 @@ export async function explainFailure(
       compute,
       deltas,
       comparison,
+      declaration,
       guidance: buildGuidance(finding, [], [], comparison, []),
       notes,
     };
@@ -176,6 +187,7 @@ export async function explainFailure(
     compute,
     deltas,
     comparison,
+    declaration,
     guidance: buildGuidance(finding, accounts, derivations, comparison, args ?? []),
     notes,
   };

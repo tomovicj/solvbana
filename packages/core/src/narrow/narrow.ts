@@ -1,6 +1,8 @@
 import type { Finding } from '../analyze/types.ts';
 import type { CandidateSite } from '../diagnosis.ts';
 import type { SourceTree } from '../rpc/source.ts';
+import { findDeclaration, type AccountDeclaration } from './accounts.ts';
+import { isDeclarationError } from './constraints.ts';
 import { indexSource, type SourceIndex, type ThrowSite } from './sites.ts';
 
 /**
@@ -14,6 +16,8 @@ import { indexSource, type SourceIndex, type ThrowSite } from './sites.ts';
 export interface Narrowing {
   candidates: CandidateSite[];
   reasons: string[];
+  /** The declaration located, when the failure blamed an account and one was found. */
+  declaration: AccountDeclaration | null;
 }
 
 /**
@@ -87,6 +91,7 @@ export function narrow(tree: SourceTree, finding: Finding, handlerName: string |
   if (name === null) {
     return {
       candidates: [],
+      declaration: null,
       reasons: [
         'Source was uploaded but no error name was established, so there is nothing to look for ' +
           'in it. A line number needs a variant to search for; the program publishes no IDL and ' +
@@ -95,12 +100,155 @@ export function narrow(tree: SourceTree, finding: Finding, handlerName: string |
     };
   }
 
+  // An error Anchor generated from a declaration is not raised anywhere in the
+  // source, so the throw-site index can never find it. It comes with something
+  // better: the name of the field it blamed.
+  const blamed = finding.failure.kind === 'anchor' ? finding.failure.account : null;
+  if (blamed !== null && isDeclarationError(name)) {
+    const located = fromDeclaration(tree, handlerName, blamed, name);
+    // Fall through to the variant path only when the declaration search found
+    // nothing to say. A program may also raise a custom error from a handler
+    // body while Anchor blames an account, and either answer beats none.
+    if (located.candidates.length > 0) return located;
+    const variants = byVariant(tree, finding, handlerName, name);
+    return variants.candidates.length > 0
+      ? { ...variants, reasons: [...located.reasons, ...variants.reasons] }
+      : located;
+  }
+
+  return byVariant(tree, finding, handlerName, name);
+}
+
+/**
+ * Locate the `#[account(...)]` declaration Anchor blamed, and the attribute
+ * within it that failed.
+ *
+ * This is the answer `CLAUDE.md` calls the differentiator: the constraint
+ * expression from source, next to the runtime values the earlier tiers already
+ * established. For a `ConstraintSeeds` failure it yields the seed expression
+ * itself — which is worth most exactly where the explanation tier had to refuse
+ * to recompute it, because a seed component reads another account's current
+ * state.
+ */
+function fromDeclaration(
+  tree: SourceTree,
+  handlerName: string | null,
+  field: string,
+  name: string,
+): Narrowing {
+  const outcome = findDeclaration(tree, handlerName, field, name);
+
+  if (outcome.kind === 'absent') {
+    return {
+      candidates: [],
+      declaration: null,
+      reasons: [
+        `Anchor blamed the ${field} account, but ${outcome.struct} — the accounts struct the ` +
+          'handler that ran declares — has no such field. The uploaded source and the deployed ' +
+          'binary disagree about this instruction, so no line from it is reported.',
+      ],
+    };
+  }
+
+  if (outcome.kind === 'ambiguous') {
+    return {
+      candidates: [],
+      declaration: null,
+      reasons: [
+        `${outcome.structs.length} accounts structs declare a ${field} field ` +
+          `(${outcome.structs.join(', ')}) and the handler that ran was not identified, so which ` +
+          'declaration failed is not determined.',
+      ],
+    };
+  }
+
+  if (outcome.kind === 'unknown') {
+    return {
+      candidates: [],
+      declaration: null,
+      reasons: [
+        `No accounts struct in the uploaded source declares a ${field} field, which is the ` +
+          'account Anchor blamed. The tree is missing the file that declares it, or describes a ' +
+          'different version of the program.',
+      ],
+    };
+  }
+
+  const { declaration, viaHandler } = outcome;
+  const reasons: string[] = [];
+
+  if (!viaHandler) {
+    reasons.push(
+      `The handler's accounts struct could not be read from the source, so ${declaration.struct} ` +
+        `was identified as the only struct declaring a ${field} field rather than as the one ` +
+        'that ran.',
+    );
+  }
+  if (declaration.constraint === null && declaration.attributes.length > 0) {
+    reasons.push(
+      `${name} does not come from any single #[account(...)] attribute, so the whole declaration ` +
+        'is reported rather than one expression within it.',
+    );
+  }
+
+  return {
+    candidates: [
+      {
+        location: { file: declaration.file, line: declaration.line },
+        rank: 1,
+        rationale: declarationRationale(declaration, name, viaHandler),
+      },
+    ],
+    declaration,
+    reasons,
+  };
+}
+
+/**
+ * Why this declaration is the candidate.
+ *
+ * Says plainly that the numbering proof did not apply. These are Anchor's own
+ * codes rather than the user enum's, so `proveSource` can say nothing about
+ * them, and the field lookup is the whole of the evidence — weaker, and the
+ * reader should not assume otherwise.
+ */
+function declarationRationale(
+  declaration: AccountDeclaration,
+  name: string,
+  viaHandler: boolean,
+): string {
+  const expression =
+    declaration.constraint === null
+      ? `The field is declared as ${declaration.text}`
+      : `The constraint that failed is \`${declaration.constraint}\``;
+
+  const how = viaHandler
+    ? `${declaration.struct}, read from the handler's Context<> parameter rather than from its name`
+    : `${declaration.struct}, the only struct in the tree declaring this field`;
+
+  return (
+    `Anchor raised ${name} against the ${declaration.field} field of ${how}. ${expression}. ` +
+    'This is located by the field name Anchor printed, not by the error numbering — these are ' +
+    "Anchor's own codes rather than the program's, so the tree's #[error_code] ordering says " +
+    'nothing about them. The source was supplied rather than built from the deployed binary, so ' +
+    'this locates a candidate and does not prove the line that ran.'
+  );
+}
+
+/** The original path: find where the source raises this variant. */
+function byVariant(
+  tree: SourceTree,
+  finding: Finding,
+  handlerName: string | null,
+  name: string,
+): Narrowing {
   const index = indexSource(tree);
   const proof = proveSource(index, finding.error.code, name);
 
   if (proof.kind === 'contradicted') {
     return {
       candidates: [],
+      declaration: null,
       reasons: [
         `The uploaded source does not describe the program that ran: its ${proof.enumName} enum ` +
           `numbers ${String(finding.error.code)} as ${proof.declares}, while the failure was ` +
@@ -114,6 +262,7 @@ export function narrow(tree: SourceTree, finding: Finding, handlerName: string |
   if (matching.length === 0) {
     return {
       candidates: [],
+      declaration: null,
       reasons: [
         `${name} is not raised anywhere in the ${String(index.files)} uploaded source ` +
           'file(s). Either the tree is missing the file that raises it, or the error is returned ' +
@@ -153,6 +302,7 @@ export function narrow(tree: SourceTree, finding: Finding, handlerName: string |
       rank: position + 1,
       rationale: rationale(site, name, contains(scopes, site), handler, proof),
     })),
+    declaration: null,
     reasons,
   };
 }
