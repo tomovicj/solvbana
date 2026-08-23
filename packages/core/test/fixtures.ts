@@ -1,6 +1,6 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import type { AccountSnapshot, AccountSource } from '@solvbana/core';
+import type { AccountSnapshot, AccountSource, SourceTree } from '@solvbana/core';
 
 export const FIXTURES = join(import.meta.dirname, '..', '..', '..', 'fixtures');
 
@@ -79,4 +79,24 @@ export function programSnapshot(programId: string): ProgramSnapshotFixture {
 /** An account source over every recorded program in the corpus. */
 export function corpusAccounts(programIds: readonly string[]): AccountSource {
   return snapshotAccounts(...programIds.map(programSnapshot));
+}
+
+/**
+ * A synthetic Anchor source tree from `fixtures/source/<name>`.
+ *
+ * Hand-written rather than harvested, and kept apart from the transaction corpus
+ * for the same reason `fixtures/synthetic/` is: no corpus program publishes its
+ * source, so the throw-site index can only be scored against trees written for
+ * the purpose. Paths are relative to the tree root and forward-slashed, which is
+ * what an upload sends.
+ */
+export function sourceTree(name: string): SourceTree {
+  const root = join(FIXTURES, 'source', name);
+  const files = readdirSync(root, { recursive: true, encoding: 'utf8' })
+    .map((entry) => entry.split('\\').join('/'))
+    .filter((entry) => entry.endsWith('.rs'))
+    .sort()
+    .map((path) => ({ path, contents: readFileSync(join(root, path), 'utf8') }));
+
+  return { files };
 }
