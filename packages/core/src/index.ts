@@ -138,6 +138,13 @@ export {
 export { buildGuidance } from './explain/guidance.ts';
 export { narrow, proveSource, type Narrowing, type SourceProof } from './narrow/narrow.ts';
 export {
+  contextStruct,
+  findDeclaration,
+  type AccountDeclaration,
+  type DeclarationOutcome,
+} from './narrow/accounts.ts';
+export { attributeFor, isDeclarationError } from './narrow/constraints.ts';
+export {
   indexSource,
   type ErrorEnum,
   type SourceIndex,
