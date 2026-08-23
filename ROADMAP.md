@@ -146,7 +146,7 @@ Built **from the transaction record and the program's published IDL**, with no s
 - [x] Explanation templates per error category — what this error means, the usual causes, what to check
 - [x] Suggested fixes where the evidence is unambiguous
 - [ ] Render the failing source with surrounding context, throw site highlighted — waits on Phase 3, which is what produces a source tree
-- [x] Read the `Left:` / `Right:` operands: which side the transaction passed and which the program required, proved by matching an operand against the blamed account's recorded address, plus the gap between two numbers. Reported unlabelled when the record proves neither
+- [x] Read the `Left:` / `Right:` operands: which side the transaction passed and which the program required, proved either by matching an operand against the blamed account's recorded address or against a value the client encoded in the instruction data, plus the gap between two numbers. Reported unlabelled when the record proves neither
 - [ ] Show the constraint expression itself, alongside those operands — waits on Phase 3 for the source
 - [ ] Owner and data length per account — not in the transaction record, and a current-state read would describe a different world than the one that failed
 - [ ] Shareable permalink per diagnosis — presentation, deferred with the rest of it
@@ -155,7 +155,7 @@ Built **from the transaction record and the program's published IDL**, with no s
 
 ### What the corpus shows
 
-Compute is attributed for all 47 fixtures, an account table is built for 40, names are attached for 21, arguments decode for 22, and 24 carry a concrete suggested fix. 49 IDL-declared PDA derivations reproduce the address that was passed and none contradicts one; 9 more refuse because a seed component could not be resolved from the record.
+Compute is attributed for all 47 fixtures, an account table is built for 40, names are attached for 21, arguments decode for 22, and 25 carry a concrete suggested fix. 49 IDL-declared PDA derivations reproduce the address that was passed and none contradicts one; 9 more refuse because a seed component could not be resolved from the record.
 
 The headline item nearly shipped wrong. When Phase 4 was built, **none of the 9 fixtures with a named offending account had IDL-declared seeds for that account** — five are missing associated token accounts, whose derivation belongs to the Associated Token program rather than to the failing program. Recomputing PDAs from declared seeds alone would have run on twelve fixtures and never once on the account that actually failed, which is why the pinned associated-token derivation was built alongside it.
 
@@ -167,11 +167,48 @@ That remains true of the *derivation*, and it is not the end of the story: the r
 
 The live reach of this is small and should be stated as such. Across two 120-failure samples an operand pair appeared in 4.2% and 8.3%, **every one of them numeric, with proven orientation occurring zero times in 240 failures**. An address comparison that names an account means a broken client, which then gets fixed, so it is rare in traffic for the same reason `ConstraintSeeds` took a targeted 300-block scan to find two of. What this buys is that those failures are answerable when they do arrive, not that many of them do.
 
-Three rules came out of building it:
+**A second, independent proof settles the numeric ones: the arguments the client encoded.** A value written into the instruction data that then appears as an operand is a value the client supplied, so the other side is what the program computed. That is what turns "a comparison failed" into "the `min_base_amount_out` you passed was 428963556055 and the program computed 412250202354, 3.90% short" — it names the one input the developer controls.
+
+Two claims come out of this and they are deliberately kept apart, because deriving the second from the first would assert more than the record carries:
+
+1. **Which argument a value came from** — settled by exactly one argument matching the operand.
+2. **Which side the client supplied** — settled only when that argument matches *one* operand rather than both, which an equal pair never does.
+
+`require_gt!(0, 0)` against `minimum_amount_out = 0` is the case that forces the distinction: the zero provably came from that argument, and which zero it is stays unknown. The corpus therefore reads three arguments named against three orientations proved, and the difference between those two counts is the rule working rather than a shortfall. Where both the address proof and the argument proof fire they cross-check rather than rank — agreement confirms, and disagreement returns to unproven, because nothing licenses choosing between two independent reads of one record.
+
+**This is the item where the live number moved.** The address proof alone oriented nothing in 240 sampled failures, because live traffic's operand pairs are overwhelmingly numeric. With the argument proof, a 150-failure sample oriented **6 of 6** — every pair it saw. That is the reverse of the previous measurement and it comes from matching a different part of the record, not from relaxing the rule.
+
+### Reading operands in token units, deferred with a measurement
+
+An operand is a raw `u64`; `412250202354` means nothing where `412.250202354` would. The decimals are in the record, on `meta.preTokenBalances`, so this looks free.
+
+It is not, because pairing an operand to a *mint* is not derivable. Matching an argument named `min_base_amount_out` to an account named `base_mint` is a naming-convention guess, which is the class of inference this project refuses. The only sound rule is to render when the failing instruction's token accounts all share one mint — and measured, they essentially never do: **0 of 3 corpus fixtures with a numeric comparison, and 1 of 22 live**. Every other case is a swap, with exactly two mints and no way to say which side is which.
+
+So it is not built. Building it would add a path the corpus cannot score and traffic would almost never take, which is the same reasoning that deferred Phase 3.
+
+### What the failure distribution actually looks like
+
+Measured over 560 live failures, capped at 8 per block, and counted by **distinct program** rather than by transaction — because a count of transactions is a portrait of whichever bot is losing money right now:
+
+| category | txs | distinct programs |
+| --- | --- | --- |
+| `undecoded` — no IDL published | 369 | **38 (68%)** |
+| Anchor error, self-named, blames no account | 80 | **12 (21%)** |
+| compute exhaustion | 9 | 4 |
+| native program error | 13 | 2 |
+| `runtime: InvalidInstructionData` | 87 | **1** |
+| Anchor error blaming an account | 2 | 1 |
+
+The two columns disagree sharply and the right one is the second. `InvalidInstructionData` is 17% of transactions and looks like the obvious next target; it is **one program** failing over and over. Prioritising from the transaction count would have spent a phase improving one bot's error message.
+
+Sizing the self-named Anchor category directly: 10 distinct programs, of which **9 publish an on-chain IDL**, so their arguments decode. Their errors are overwhelmingly thresholds — `ExceededSlippage`, `ExceededAmountSlippageTolerance`, `AmountOutBelowMinimum`, `TooLittleOutputReceived` — and only 12 of 36 such failures print operands at all. The ones that do not now report their decoded arguments and say plainly that the program raised a bare `require!` where the comparing forms would have logged both sides.
+
+Four rules came out of building it:
 
 - **This phase never changes `confidence` or `candidates`.** It explains what earlier tiers established and locates nothing new, so it cannot promote a diagnosis. A corpus test compares each diagnosis against the same diagnosis without the explanation and requires both to match. An address read from an operand is not a location, so it does not reach `exact` either.
 - **A derivation is proved, never inferred.** The associated-token check draws every candidate from the transaction's own accounts and mints; a hit means the derivation reproduced the address exactly. The negative is reported too, bounded by the search space it states — an address that is not the associated token account of anything the instruction passed is an address the client derived wrongly, which is the more useful of the two outcomes.
 - **A read and a derivation are kept apart in the output.** The operand pair lives on `Explanation.comparison`, not folded into a `DerivationCheck`, whose `seeds`, `bump` and `programId` describe a derivation that never happened for an address the program printed.
+- **Two proofs of one fact cross-check; they do not rank.** The address match and the argument match are independent reads of the same record, so a disagreement means one of them is wrong about this transaction and there is no basis for picking. It returns to unproven rather than preferring the older rule.
 
 ---
 
