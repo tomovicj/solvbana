@@ -1,3 +1,4 @@
+import type { AccountDeclaration } from '../narrow/accounts.ts';
 import type { AccountOrigin } from '../ingest/types.ts';
 
 /**
@@ -272,6 +273,16 @@ export interface Explanation {
    * happened.
    */
   comparison: ReadComparison | null;
+  /**
+   * The source declaration Anchor blamed, when a tree was uploaded.
+   *
+   * The constraint expression next to the runtime values is what this project
+   * exists to produce, and it is carried as data rather than folded into prose:
+   * a consumer reads `seeds = [b"vault", authority.key().as_ref()]` from a field
+   * instead of parsing it back out of a sentence. `null` whenever no source was
+   * supplied, which is every diagnosis that does not go through `POST /artifacts`.
+   */
+  declaration: AccountDeclaration | null;
   guidance: Guidance;
   /** Why each part is present, absent, or partial. */
   notes: string[];

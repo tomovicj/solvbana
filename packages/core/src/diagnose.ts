@@ -6,6 +6,7 @@ import { normalizeTransaction } from './ingest/normalize.ts';
 import type { FailedTransaction } from './ingest/types.ts';
 import { explainFailure } from './explain/explain.ts';
 import { narrow } from './narrow/narrow.ts';
+import type { AccountDeclaration } from './narrow/accounts.ts';
 import type { Explanation } from './explain/types.ts';
 import type { ResolvedIdl } from './resolve/idl.ts';
 import { refineWithResolution } from './resolve/refine.ts';
@@ -121,36 +122,51 @@ async function withResolution(
  * binary, so `exact` — a location the program printed about itself — is stronger
  * evidence than anything found here and is left alone.
  */
-async function withNarrowing(analysis: Analysis, deps: DiagnoseDeps): Promise<Analysis> {
+async function withNarrowing(
+  analysis: Analysis,
+  deps: DiagnoseDeps,
+): Promise<{ analysis: Analysis; declaration: AccountDeclaration | null }> {
   const store = deps.artifacts;
   const programId = analysis.finding.program;
-  if (store?.fetchSource === undefined || programId === null) return analysis;
+  if (store?.fetchSource === undefined || programId === null) {
+    return { analysis, declaration: null };
+  }
 
   try {
     const tree = await store.fetchSource(programId);
-    if (tree === null || tree.files.length === 0) return analysis;
+    if (tree === null || tree.files.length === 0) return { analysis, declaration: null };
 
-    const { candidates, reasons } = narrow(tree, analysis.finding, analysis.finding.handler);
+    const { candidates, reasons, declaration } = narrow(
+      tree,
+      analysis.finding,
+      analysis.finding.handler,
+    );
     return {
-      ...analysis,
-      confidence:
-        candidates.length > 0 && analysis.confidence === 'variant-only'
-          ? 'narrowed'
-          : analysis.confidence,
-      candidates: candidates.length > 0 ? candidates : analysis.candidates,
-      reasons: [...analysis.reasons, ...reasons],
+      analysis: {
+        ...analysis,
+        confidence:
+          candidates.length > 0 && analysis.confidence === 'variant-only'
+            ? 'narrowed'
+            : analysis.confidence,
+        candidates: candidates.length > 0 ? candidates : analysis.candidates,
+        reasons: [...analysis.reasons, ...reasons],
+      },
+      declaration,
     };
   } catch (error) {
     // Same contract as resolution: an enrichment that throws must not cost the
     // answer already established without it.
     return {
-      ...analysis,
-      reasons: [
-        ...analysis.reasons,
-        `Source narrowing failed and was skipped: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      ],
+      analysis: {
+        ...analysis,
+        reasons: [
+          ...analysis.reasons,
+          `Source narrowing failed and was skipped: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        ],
+      },
+      declaration: null,
     };
   }
 }
@@ -168,9 +184,13 @@ async function withExplanation(
   transaction: FailedTransaction,
   analysis: Analysis,
   idl: ResolvedIdl | null,
+  declaration: AccountDeclaration | null,
 ): Promise<{ explanation: Explanation | undefined; reason: string | null }> {
   try {
-    return { explanation: await explainFailure(transaction, analysis.finding, idl), reason: null };
+    return {
+      explanation: await explainFailure(transaction, analysis.finding, idl, declaration),
+      reason: null,
+    };
   } catch (error) {
     return {
       explanation: undefined,
@@ -265,8 +285,13 @@ export async function diagnose(signature: string, deps: DiagnoseDeps): Promise<D
 
   const transaction = normalizeTransaction(outcome.raw, signature);
   const resolved = await withResolution(analyze(transaction), transaction, deps);
-  const analysis = await withNarrowing(resolved.analysis, deps);
-  const { explanation, reason } = await withExplanation(transaction, analysis, resolved.idl);
+  const { analysis, declaration } = await withNarrowing(resolved.analysis, deps);
+  const { explanation, reason } = await withExplanation(
+    transaction,
+    analysis,
+    resolved.idl,
+    declaration,
+  );
 
   return {
     signature,
