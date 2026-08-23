@@ -70,7 +70,7 @@ Every result carries an explicit confidence level:
 
 - **`exact`** — the location is read, not inferred: a panic message or an Anchor `thrown in <file>:<line>` that the program printed about itself. `exact` always comes with at least one location; it never means "we're sure but can't say where".
 - **`narrowed`** — inference reduced the candidates to a specific set. All surviving candidates are shown, ranked. Never just the top one.
-- **`variant-only`** — the error is identified but not located. This covers more than it sounds like: an Anchor error attributed to a specific account, with its name, its `#[msg]` text, and the two operands that failed the comparison, is `variant-only` — because none of that is a line number.
+- **`variant-only`** — the error is identified but not located. This covers more than it sounds like: an Anchor error attributed to a specific account, with its name, its `#[msg]` text, and the two operands that failed the comparison — including, where the record proves which side is which, the address the program required and did not get — is `variant-only`, because none of that is a line number.
 - **`unknown`** — logs were truncated, state is unavailable, or the failure is opaque. Says so plainly.
 
 A debugger that is confidently wrong once is a debugger you stop trusting. The tool would rather return three candidates than one guess.

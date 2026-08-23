@@ -146,7 +146,8 @@ Built **from the transaction record and the program's published IDL**, with no s
 - [x] Explanation templates per error category — what this error means, the usual causes, what to check
 - [x] Suggested fixes where the evidence is unambiguous
 - [ ] Render the failing source with surrounding context, throw site highlighted — waits on Phase 3, which is what produces a source tree
-- [ ] Show the constraint expression itself, alongside the Left/Right operands — same dependency
+- [x] Read the `Left:` / `Right:` operands: which side the transaction passed and which the program required, proved by matching an operand against the blamed account's recorded address, plus the gap between two numbers. Reported unlabelled when the record proves neither
+- [ ] Show the constraint expression itself, alongside those operands — waits on Phase 3 for the source
 - [ ] Owner and data length per account — not in the transaction record, and a current-state read would describe a different world than the one that failed
 - [ ] Shareable permalink per diagnosis — presentation, deferred with the rest of it
 
@@ -154,16 +155,23 @@ Built **from the transaction record and the program's published IDL**, with no s
 
 ### What the corpus shows
 
-Compute is attributed for all 47 fixtures, an account table is built for 40, names are attached for 21, arguments decode for 22, and 19 carry a concrete suggested fix. 49 IDL-declared PDA derivations reproduce the address that was passed and none contradicts one; 9 more refuse because a seed component could not be resolved from the record.
+Compute is attributed for all 47 fixtures, an account table is built for 40, names are attached for 21, arguments decode for 22, and 24 carry a concrete suggested fix. 49 IDL-declared PDA derivations reproduce the address that was passed and none contradicts one; 9 more refuse because a seed component could not be resolved from the record.
 
 The headline item nearly shipped wrong. When Phase 4 was built, **none of the 9 fixtures with a named offending account had IDL-declared seeds for that account** — five are missing associated token accounts, whose derivation belongs to the Associated Token program rather than to the failing program. Recomputing PDAs from declared seeds alone would have run on twelve fixtures and never once on the account that actually failed, which is why the pinned associated-token derivation was built alongside it.
 
-The two harvested `ConstraintSeeds` fixtures are the first where the blamed account does declare seeds, and they are worth reading as the honest outcome rather than the happy one. PumpSwap's `coin_creator_vault_authority` derives from `[b"creator_vault", pool.coin_creator]`. The literal resolves; `pool.coin_creator` reads a field out of another account's data, which exists only as current state, so the check reports `unresolved` and names the component that blocked it. Two of 11 blamed accounts have declared seeds and **neither can be recomputed** — the seeds that matter are the ones that reach outside the transaction. What the reader still gets is the error name, the blamed field, and the two operands Anchor logged.
+The two harvested `ConstraintSeeds` fixtures are the first where the blamed account does declare seeds, and they are worth reading as the honest outcome rather than the happy one. PumpSwap's `coin_creator_vault_authority` derives from `[b"creator_vault", pool.coin_creator]`. The literal resolves; `pool.coin_creator` reads a field out of another account's data, which exists only as current state, so the check reports `unresolved` and names the component that blocked it. Two of 11 blamed accounts have declared seeds and **neither can be recomputed** — the seeds that matter are the ones that reach outside the transaction.
 
-Two rules came out of building it:
+That remains true of the *derivation*, and it is not the end of the story: the running program had the state, derived the address, and printed it. Anchor's `Left:` / `Right:` pair carries the answer this tier could not compute, and reading it is a read rather than a derivation — the same distinction that lets a panic's `file:line` stand without a verified build. So the expected address is reported for exactly the accounts whose seeds were refused, and the refusal is still reported beside it, because the two are different claims.
 
-- **This phase never changes `confidence` or `candidates`.** It explains what earlier tiers established and locates nothing new, so it cannot promote a diagnosis. A corpus test compares each diagnosis against the same diagnosis without the explanation and requires both to match.
+**Which operand is which is proved from the record, never from Anchor's ordering.** If exactly one operand is the address the blamed account actually holds, that side is what the transaction passed and the other is what the program required; otherwise the pair stays unlabelled. Anchor's ordering is a convention of one framework's source, which is the same kind of thing as its reserved code ranges, and those are already refused. The six fixtures carrying a pair split three ways and the split is the argument for the rule: two prove their orientation, three are integer comparisons that need none, and one blames a field the published IDL never names, leaving nothing to prove anything against. An assumed ordering would have labelled that last one confidently with nothing behind it.
+
+The live reach of this is small and should be stated as such. Across two 120-failure samples an operand pair appeared in 4.2% and 8.3%, **every one of them numeric, with proven orientation occurring zero times in 240 failures**. An address comparison that names an account means a broken client, which then gets fixed, so it is rare in traffic for the same reason `ConstraintSeeds` took a targeted 300-block scan to find two of. What this buys is that those failures are answerable when they do arrive, not that many of them do.
+
+Three rules came out of building it:
+
+- **This phase never changes `confidence` or `candidates`.** It explains what earlier tiers established and locates nothing new, so it cannot promote a diagnosis. A corpus test compares each diagnosis against the same diagnosis without the explanation and requires both to match. An address read from an operand is not a location, so it does not reach `exact` either.
 - **A derivation is proved, never inferred.** The associated-token check draws every candidate from the transaction's own accounts and mints; a hit means the derivation reproduced the address exactly. The negative is reported too, bounded by the search space it states — an address that is not the associated token account of anything the instruction passed is an address the client derived wrongly, which is the more useful of the two outcomes.
+- **A read and a derivation are kept apart in the output.** The operand pair lives on `Explanation.comparison`, not folded into a `DerivationCheck`, whose `seeds`, `bump` and `programId` describe a derivation that never happened for an address the program printed.
 
 ---
 
