@@ -5,6 +5,7 @@ import { describeTransactionError, failingInstructionIndex } from './ingest/erro
 import { normalizeTransaction } from './ingest/normalize.ts';
 import type { FailedTransaction } from './ingest/types.ts';
 import { explainFailure } from './explain/explain.ts';
+import { narrow } from './narrow/narrow.ts';
 import type { Explanation } from './explain/types.ts';
 import type { ResolvedIdl } from './resolve/idl.ts';
 import { refineWithResolution } from './resolve/refine.ts';
@@ -107,12 +108,61 @@ async function withResolution(
 }
 
 /**
+ * Locate candidate throw sites in uploaded source.
+ *
+ * **This is the one enrichment that legitimately changes `confidence` and
+ * `candidates`.** `withExplanation` below cannot, by construction, and a corpus
+ * test enforces that — so a reader meeting this function needs telling that the
+ * rule is different here. Narrowing is inference over source, which is exactly
+ * what `narrowed` was reserved for.
+ *
+ * It only ever raises `variant-only` to `narrowed`, never further and never in
+ * the other direction. An uploaded tree is not hash-proven against the deployed
+ * binary, so `exact` — a location the program printed about itself — is stronger
+ * evidence than anything found here and is left alone.
+ */
+async function withNarrowing(analysis: Analysis, deps: DiagnoseDeps): Promise<Analysis> {
+  const store = deps.artifacts;
+  const programId = analysis.finding.program;
+  if (store?.fetchSource === undefined || programId === null) return analysis;
+
+  try {
+    const tree = await store.fetchSource(programId);
+    if (tree === null || tree.files.length === 0) return analysis;
+
+    const { candidates, reasons } = narrow(tree, analysis.finding, analysis.finding.handler);
+    return {
+      ...analysis,
+      confidence:
+        candidates.length > 0 && analysis.confidence === 'variant-only'
+          ? 'narrowed'
+          : analysis.confidence,
+      candidates: candidates.length > 0 ? candidates : analysis.candidates,
+      reasons: [...analysis.reasons, ...reasons],
+    };
+  } catch (error) {
+    // Same contract as resolution: an enrichment that throws must not cost the
+    // answer already established without it.
+    return {
+      ...analysis,
+      reasons: [
+        ...analysis.reasons,
+        `Source narrowing failed and was skipped: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      ],
+    };
+  }
+}
+
+/**
  * Build the explanation, or degrade to none.
  *
  * Held to the same contract as resolution: it is an enrichment, and a failure
  * here appends a reason rather than losing the diagnosis that was already
  * established. It cannot change confidence or candidates by construction, since
- * it returns neither.
+ * it returns neither — unlike `withNarrowing` above, which is the one tier that
+ * may.
  */
 async function withExplanation(
   transaction: FailedTransaction,
@@ -214,8 +264,9 @@ export async function diagnose(signature: string, deps: DiagnoseDeps): Promise<D
   }
 
   const transaction = normalizeTransaction(outcome.raw, signature);
-  const { analysis, idl } = await withResolution(analyze(transaction), transaction, deps);
-  const { explanation, reason } = await withExplanation(transaction, analysis, idl);
+  const resolved = await withResolution(analyze(transaction), transaction, deps);
+  const analysis = await withNarrowing(resolved.analysis, deps);
+  const { explanation, reason } = await withExplanation(transaction, analysis, resolved.idl);
 
   return {
     signature,
