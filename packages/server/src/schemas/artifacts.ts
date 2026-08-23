@@ -28,6 +28,20 @@ export const ArtifactsBody = Type.Object(
     idl: Type.Optional(Type.Unknown()),
     /** The compiled program, base64-encoded, exactly as `target/deploy/*.so` holds it. */
     binary: Type.Optional(Type.String({ minLength: 1 })),
+    /**
+     * The program's Rust source, as relative path to file contents.
+     *
+     * A map rather than an archive, for the same reason the binary is base64
+     * rather than multipart: one content type across the API and no archive
+     * dependency to audit. Only `.rs` files are accepted and only the paths that
+     * pass `isSafeSourcePath`, which is checked before anything is joined onto a
+     * directory.
+     *
+     * Uploading source buys candidate line numbers and nothing more. It never
+     * names an error and never lifts a diagnosis past `narrowed`, because a tree
+     * somebody sent is not hash-proven against the binary that ran.
+     */
+    source: Type.Optional(Type.Record(Type.String({ minLength: 1 }), Type.String())),
   },
   { additionalProperties: false },
 );
@@ -65,6 +79,17 @@ export const ArtifactsResponse = Type.Object({
         Type.Object({ kind: Type.Literal('mismatch'), deployedHash: Type.String() }),
         Type.Object({ kind: Type.Literal('unknown'), reason: Type.String() }),
       ]),
+    }),
+    Type.Null(),
+  ]),
+  source: Type.Union([
+    Type.Object({
+      stored: Type.Literal(true),
+      files: Type.Integer(),
+      /** Throw sites indexed across the tree, over every error variant. */
+      sites: Type.Integer(),
+      /** `#[error_code]` enums found, whose ordering is what proves the tree. */
+      errorEnums: Type.Integer(),
     }),
     Type.Null(),
   ]),
