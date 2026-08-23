@@ -6,6 +6,7 @@ import {
   explainFailure,
   normalizeTransaction,
   refineWithResolution,
+  requiredSide,
   resolveProgram,
   reviveRawTransaction,
   type Confidence,
@@ -19,8 +20,16 @@ interface Entry {
   file: string;
   phase1: { confidence: Confidence; program: string | null; account: string | null };
   phase4?: {
-    namedAccounts: boolean;
+    namedAccounts?: boolean;
     derivation?: { account: string; status: string; source: string };
+    comparison?: {
+      passed: 'left' | 'right' | null;
+      required?: string;
+      numeric: boolean;
+      equal?: boolean;
+      difference?: string;
+      note: string;
+    };
   };
 }
 
@@ -107,8 +116,15 @@ describe('explaining the corpus', () => {
   it('never reports a derived address it could not fully resolve', async () => {
     // A derivation from a partial seed set would be exactly the confident and
     // wrong answer this project exists to avoid.
+    //
+    // Scoped to the two sources that actually derive. A seedless check would
+    // satisfy `seeds.every(...)` vacuously and pass this for the wrong reason,
+    // so the sources are named rather than left implicit.
+    const derived = ['idl-pda', 'associated-token'];
+
     for (const entry of manifest.entries) {
       for (const check of (await explainFixture(entry)).derivations) {
+        expect(derived, `${entry.signature} ${check.account}`).toContain(check.source);
         if (check.status === 'match' || check.status === 'mismatch') {
           expect(check.expected, `${entry.signature} ${check.account}`).not.toBeNull();
           expect(check.seeds.every((seed) => seed.bytes !== null)).toBe(true);
@@ -142,10 +158,12 @@ describe('explaining the corpus', () => {
     const explanation = await explainFixture(entry);
     const expected = entry.phase4!;
 
-    expect(
-      explanation.accounts.some((row) => row.name !== null),
-      `${label} names`,
-    ).toBe(expected.namedAccounts);
+    if (expected.namedAccounts !== undefined) {
+      expect(
+        explanation.accounts.some((row) => row.name !== null),
+        `${label} names`,
+      ).toBe(expected.namedAccounts);
+    }
 
     if (expected.derivation !== undefined) {
       const check = explanation.derivations.find(
@@ -154,6 +172,43 @@ describe('explaining the corpus', () => {
       expect(check, `${label} derivation`).toBeDefined();
       expect(check?.status, `${label} status`).toBe(expected.derivation.status);
       expect(check?.source, `${label} source`).toBe(expected.derivation.source);
+    }
+
+    if (expected.comparison !== undefined) {
+      const read = explanation.comparison;
+      expect(read, `${label} comparison`).not.toBeNull();
+
+      // The orientation, which is the whole point: `passed` is set only where
+      // the record proves which operand the transaction supplied. Each
+      // manifest entry's `note` records the hand-check behind the expectation.
+      expect(read?.passed, `${label} passed`).toBe(expected.comparison.passed);
+      if (expected.comparison.required !== undefined) {
+        expect(requiredSide(read!), `${label} required`).toBe(expected.comparison.required);
+      } else {
+        expect(requiredSide(read!), `${label} required`).toBeNull();
+      }
+
+      expect(read?.numeric !== null, `${label} numeric`).toBe(expected.comparison.numeric);
+      if (expected.comparison.equal !== undefined) {
+        expect(read?.numeric?.equal, `${label} equal`).toBe(expected.comparison.equal);
+      }
+      if (expected.comparison.difference !== undefined) {
+        expect(String(read?.numeric?.difference), `${label} difference`).toBe(
+          expected.comparison.difference,
+        );
+      }
+    }
+  });
+
+  it('reads a comparison for exactly the fixtures whose logs carry one', async () => {
+    // The pair is only ever read from the log stream, so a comparison must
+    // appear where and only where Anchor printed `Left:` and `Right:`.
+    for (const entry of manifest.entries) {
+      const logs = readJson<{ meta: { logMessages: string[] | null } }>('transactions', entry.file)
+        .meta.logMessages;
+      const printed = (logs ?? []).some((line) => line.startsWith('Program log: Left:'));
+
+      expect((await explainFixture(entry)).comparison !== null, entry.signature).toBe(printed);
     }
   });
 });
@@ -168,7 +223,17 @@ describe('explaining the corpus', () => {
  */
 describe('explanation reach', () => {
   it('holds its measured coverage of the corpus', async () => {
-    const counts = { accounts: 0, named: 0, args: 0, compute: 0, fix: 0, ataProven: 0, pda: 0 };
+    const counts = {
+      accounts: 0,
+      named: 0,
+      args: 0,
+      compute: 0,
+      fix: 0,
+      ataProven: 0,
+      pda: 0,
+      comparison: 0,
+      oriented: 0,
+    };
 
     for (const entry of manifest.entries) {
       const explanation = await explainFixture(entry);
@@ -177,6 +242,8 @@ describe('explanation reach', () => {
       if (explanation.args !== null && explanation.args.length > 0) counts.args += 1;
       if (explanation.compute !== null) counts.compute += 1;
       if (explanation.guidance.fix !== null) counts.fix += 1;
+      if (explanation.comparison !== null) counts.comparison += 1;
+      if (explanation.comparison?.passed != null) counts.oriented += 1;
       for (const check of explanation.derivations) {
         if (check.source === 'associated-token' && check.status === 'match') counts.ataProven += 1;
         if (check.source === 'idl-pda' && check.status === 'match') counts.pda += 1;
@@ -187,8 +254,13 @@ describe('explanation reach', () => {
     expect(counts.accounts).toBeGreaterThanOrEqual(38);
     expect(counts.named).toBeGreaterThanOrEqual(19);
     expect(counts.args).toBeGreaterThanOrEqual(20);
-    expect(counts.fix).toBeGreaterThanOrEqual(19);
+    expect(counts.fix).toBeGreaterThanOrEqual(24);
     expect(counts.ataProven).toBeGreaterThanOrEqual(2);
     expect(counts.pda).toBeGreaterThanOrEqual(37);
+    expect(counts.comparison).toBeGreaterThanOrEqual(6);
+    // Two, and the gap to six is the point rather than a shortfall: four of the
+    // pairs are either integers, which need no orientation, or blame an account
+    // the IDL never names, which leaves nothing to prove one against.
+    expect(counts.oriented).toBeGreaterThanOrEqual(2);
   });
 });

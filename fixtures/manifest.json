@@ -25,6 +25,12 @@
           "account": "coin_creator_vault_authority",
           "status": "unresolved",
           "source": "idl-pda"
+        },
+        "comparison": {
+          "passed": "left",
+          "required": "suF9JtJUXf53s25jjnkwZZWtcQog1hM1Y6Qx7TriZwn",
+          "numeric": false,
+          "note": "Left is account key 20; Right appears nowhere in the transaction's account list, so it is an address the program derived rather than one the client passed."
         }
       }
     },
@@ -169,6 +175,15 @@
           "line": 687
         },
         "account": null
+      },
+      "phase4": {
+        "comparison": {
+          "passed": null,
+          "numeric": true,
+          "equal": false,
+          "difference": "16713353701",
+          "note": "Integer operands, so orientation is neither needed nor claimed. 428963556055 - 412250202354."
+        }
       }
     },
     {
@@ -576,6 +591,15 @@
           "line": 149
         },
         "account": null
+      },
+      "phase4": {
+        "comparison": {
+          "passed": null,
+          "numeric": true,
+          "equal": true,
+          "difference": "0",
+          "note": "require_gt! given 0 and 0: the comparison failed on equality, not magnitude."
+        }
       }
     },
     {
@@ -599,6 +623,15 @@
           "line": 149
         },
         "account": null
+      },
+      "phase4": {
+        "comparison": {
+          "passed": null,
+          "numeric": true,
+          "equal": true,
+          "difference": "0",
+          "note": "require_gt! given 0 and 0: the comparison failed on equality, not magnitude."
+        }
       }
     },
     {
@@ -760,6 +793,12 @@
           "account": "coin_creator_vault_authority",
           "status": "unresolved",
           "source": "idl-pda"
+        },
+        "comparison": {
+          "passed": "left",
+          "required": "GMc58fp264TR3fB7JnS9jVYy4fqJQx3N9Hx4UWw9zspD",
+          "numeric": false,
+          "note": "Left is account key 20; Right appears nowhere in the transaction's account list, so it is an address the program derived rather than one the client passed."
         }
       }
     },
@@ -841,6 +880,13 @@
         "errorNumber": 2004,
         "site": null,
         "account": "encoded_vaa"
+      },
+      "phase4": {
+        "comparison": {
+          "passed": null,
+          "numeric": false,
+          "note": "Blames encoded_vaa, which the published IDL never names, so no row exists to match an operand against. Right is account key 3, but that does not tie it to the blamed field - a required owner program may equally appear in the key list. Orientation is therefore unproven and must stay unlabelled."
+        }
       }
     },
     {
