@@ -200,6 +200,15 @@ const blockers = new Map<string, number>();
 const naming = new Map<string, number>();
 let sampled = 0;
 let scanned = 0;
+/**
+ * What the explanation tier reached, for the failures that got that far.
+ *
+ * The blocker table above measures why *unnamed* failures went unnamed, and
+ * nothing measured what the named ones actually came away with. Six of 47 corpus
+ * fixtures carry an operand pair, but the corpus is one hand-picked instance of
+ * each failure shape and that ratio is not a claim about traffic.
+ */
+const explained = { total: 0, comparison: 0, oriented: 0, numeric: 0, fix: 0, causes: 0 };
 
 for (let slot = head; slot > head - maxBlocks && sampled < target; slot -= 1) {
   const block = await fetchBlock(slot);
@@ -234,6 +243,18 @@ for (let slot = head; slot > head - maxBlocks && sampled < target; slot -= 1) {
     const named = diagnosis.finding?.error.naming ?? 'none';
     naming.set(named, (naming.get(named) ?? 0) + 1);
 
+    const explanation = diagnosis.explanation;
+    if (explanation !== undefined) {
+      explained.total += 1;
+      if (explanation.guidance.fix !== null) explained.fix += 1;
+      if (explanation.guidance.causes.length > 0) explained.causes += 1;
+      if (explanation.comparison !== null) {
+        explained.comparison += 1;
+        if (explanation.comparison.passed !== null) explained.oriented += 1;
+        if (explanation.comparison.numeric !== null) explained.numeric += 1;
+      }
+    }
+
     if (diagnosis.finding?.error.name === null) {
       const reason = blockedBy(diagnosis);
       blockers.set(reason, (blockers.get(reason) ?? 0) + 1);
@@ -259,6 +280,23 @@ if (blockers.size > 0) {
   console.log('\nwhat blocked the ones left unnamed');
   for (const [reason, count] of [...blockers].sort((a, b) => b[1] - a[1])) {
     console.log(`  ${String(count).padStart(5)}  ${share(count).padStart(6)}  ${reason}`);
+  }
+}
+
+if (explained.total > 0) {
+  // Deliberately shared against the explained subset rather than the whole
+  // sample: these say what an explanation contained, not how often one was
+  // produced, and mixing the two denominators would understate both.
+  const of = (count: number): string => `${((count / explained.total) * 100).toFixed(1)}%`;
+  console.log(`\nwhat the explanation carried, over ${String(explained.total)} explained`);
+  for (const [label, count] of [
+    ['suggested a concrete fix', explained.fix],
+    ['listed at least one cause', explained.causes],
+    ['carried an operand pair', explained.comparison],
+    ['  of those, orientation proven', explained.oriented],
+    ['  of those, a numeric gap', explained.numeric],
+  ] as const) {
+    console.log(`  ${String(count).padStart(5)}  ${of(count).padStart(6)}  ${label}`);
   }
 }
 
