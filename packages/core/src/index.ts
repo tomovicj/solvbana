@@ -126,6 +126,7 @@ export { accountTable, nameableCount } from './explain/accounts.ts';
 export { decodeArgs, describeType } from './explain/args.ts';
 export { computeBreakdown } from './explain/compute.ts';
 export { balanceDeltas } from './explain/deltas.ts';
+export { passedSide, readComparison, requiredSide } from './explain/comparison.ts';
 export {
   ASSOCIATED_TOKEN_PROGRAM,
   TOKEN_2022_PROGRAM,
@@ -147,6 +148,7 @@ export type {
   Explanation,
   Guidance,
   LamportDelta,
+  ReadComparison,
   ResolvedSeed,
   TokenDelta,
   TokenSummary,

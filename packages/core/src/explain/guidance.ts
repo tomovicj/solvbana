@@ -1,5 +1,6 @@
 import type { Finding } from '../analyze/types.ts';
-import type { AccountRow, DerivationCheck, Guidance } from './types.ts';
+import { passedSide, requiredSide } from './comparison.ts';
+import type { AccountRow, DerivationCheck, Guidance, ReadComparison } from './types.ts';
 
 /**
  * Turn the evidence into what to do about it.
@@ -14,19 +15,157 @@ export function buildGuidance(
   finding: Finding,
   accounts: readonly AccountRow[],
   derivations: readonly DerivationCheck[],
+  comparison: ReadComparison | null = null,
 ): Guidance {
   const { failure } = finding;
 
   if (failure.kind === 'compute') return computeGuidance(failure);
   if (failure.kind === 'panic') return panicGuidance(failure);
   if (failure.kind === 'anchor' && failure.account !== null) {
-    return anchorAccountGuidance(finding, failure.account, accounts, derivations);
+    const account = anchorAccountGuidance(finding, failure.account, accounts, derivations);
+    // The account branches answer from the record — a zero balance, a proven
+    // associated-token derivation. Only where they found nothing to say does the
+    // operand pair get its turn.
+    if (account.causes.length > 0 || account.fix !== null) return account;
+  }
+
+  if (comparison !== null) {
+    return comparisonGuidance(finding, comparison, derivations);
   }
 
   return {
     meaning: finding.explanation,
     causes: [],
     fix: null,
+  };
+}
+
+/**
+ * Guidance built from the two operands the program printed.
+ *
+ * `explainAnchor` already prints the pair and deliberately declines to say which
+ * side is which, because Anchor's labels are a convention of its source and not
+ * a fact about the failure. What this adds is the part the record can settle:
+ * the gap between two numbers, and — where one operand is provably the address
+ * the blamed account holds — which side the program required.
+ *
+ * That required address is *read* rather than derived, which is why it can be
+ * reported for an account whose declared seeds this tier refused to resolve. It
+ * is the same distinction that lets a panic's `file:line` stand without a
+ * verified build while a computed line may not.
+ *
+ * Every branch opens with `finding.explanation`, which already states the
+ * operands neutrally, and then adds only what the record settles on top of it.
+ */
+function comparisonGuidance(
+  finding: Finding,
+  comparison: ReadComparison,
+  derivations: readonly DerivationCheck[],
+): Guidance {
+  if (comparison.numeric !== null) return numericGuidance(finding, comparison);
+
+  const blamed = finding.failure.kind === 'anchor' ? finding.failure.account : null;
+  const required = requiredSide(comparison);
+  const passed = passedSide(comparison);
+
+  if (required === null || passed === null) {
+    // Both operands are already reported; only their roles are withheld.
+    // Labelling them from Anchor's source ordering would be a claim the record
+    // does not carry, and an unlabelled pair is still more than nothing.
+    const why =
+      blamed === null
+        ? 'the failure named no account to compare them against'
+        : `${blamed} could not be matched to a position in the instruction, and an account's ` +
+          'owner is not part of the transaction record';
+    return {
+      meaning: `${finding.explanation} Which of the two the instruction supplied, and which the program required, is not established by the record.`,
+      causes: [
+        `One of these two values is what the instruction was given and the other is what the ` +
+          `program required. Which is which is not determined here because ${why}, so they are ` +
+          'reported unlabelled rather than guessed at.',
+      ],
+      fix: null,
+    };
+  }
+
+  // The declared-seed check for this account, when there is one. Its refusal is
+  // the reason the logged address is worth reporting separately at all.
+  const declared = derivations.find(
+    (check) => check.account === blamed && check.source === 'idl-pda',
+  );
+
+  const causes: string[] = [];
+  if (declared?.status === 'unresolved') {
+    causes.push(
+      `${required} is read from the log the program printed, not recomputed here. The declared ` +
+        `seeds for ${blamed ?? 'this account'} could not be resolved from the transaction record` +
+        `${declared.blockedBy === null ? '' : `: ${declared.blockedBy}`}. The running program had ` +
+        'that state and derived the address; this tier does not fetch it, so the address the ' +
+        'program printed is the only sound source for it.',
+    );
+  }
+  causes.push(
+    'The client derived the address with a different seed set or a different seed order.',
+    'A bump cached from an earlier derivation that is no longer the canonical one.',
+  );
+
+  return {
+    meaning:
+      `${finding.explanation} The program required ${required} and the instruction passed ` +
+      `${passed}. Which side is which is established from the record rather than from Anchor's ` +
+      `labels: ${passed} is the address ${blamed ?? 'the blamed account'} actually holds in this ` +
+      'transaction, so the other operand is what the program computed and did not get.',
+    causes,
+    fix:
+      `Derive the address on the client with findProgramAddress and pass ${required}, rather ` +
+      'than reusing a stored address or a cached bump.',
+  };
+}
+
+/**
+ * Guidance for a comparison between two numbers.
+ *
+ * Orientation is neither needed nor claimed: an absolute difference and a
+ * relative gap read the same whichever side is which, and they are what turns
+ * "a comparison failed" into a quantity the reader can act on.
+ */
+function numericGuidance(finding: Finding, comparison: ReadComparison): Guidance {
+  const numeric = comparison.numeric!;
+
+  if (numeric.equal) {
+    return {
+      meaning:
+        `${finding.explanation} The two sides were equal, so the comparison failed on equality ` +
+        'rather than on magnitude.',
+      causes: [
+        'A strict comparison — require_gt! or require_neq! — given two equal values. The ' +
+          'non-strict forms are require_gte! and require_eq!.',
+        'A value expected to have been set before this instruction ran that was still at its ' +
+          'initial value.',
+      ],
+      fix:
+        'Decide whether equality should pass here. If it should, use the non-strict form of the ' +
+        'comparison; if it should not, the value the client sent is the thing to fix.',
+    };
+  }
+
+  const percent = numeric.relative === null ? null : (numeric.relative * 100).toFixed(2);
+
+  return {
+    meaning:
+      `${finding.explanation} The two sides differ by ${numeric.difference.toString()}` +
+      `${percent === null ? '' : `, which is ${percent}% of the larger`}.`,
+    causes: [
+      'A bound the client computed from a quote that no longer held — pool state moves between ' +
+        'quoting and landing, and the gap above is how far it moved.',
+      'A units mismatch: an amount in whole tokens compared against one in fractional units, ' +
+        'which shows up as a difference near a power of ten.',
+    ],
+    fix:
+      percent === null
+        ? 'Compare the two values above against what the client intended to send.'
+        : `Re-quote closer to send time, or widen the tolerance past ${percent}% if that gap is ` +
+          'acceptable for this trade.',
   };
 }
 
