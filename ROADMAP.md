@@ -66,7 +66,7 @@ Connecting an on-chain program to the code that produced it. Correctness-critica
 - [x] Hash the resolved on-chain binary and confirm it matches the registry entry: `sha256(programData[45..])` with trailing zeros trimmed. The registry's own `on_chain_hash` is recomputed rather than believed
 - [x] The registry lookup is gated on the deployment check — an entry describes what is deployed *now*, so on a stale deployment it is a true statement about the wrong bytes
 - [x] Explicit unverified-program mode: error names and messages from IDL, no line numbers, confidence capped at `variant-only`
-- [ ] Local IDL upload path for programs without a published IDL — folded into Phase 3's local source path, since the two arrive together
+- [x] Local IDL upload path for programs without a published IDL — shipped as `POST /artifacts`, alongside the binary and now the source tree
 - [ ] Source fetch and cache by commit SHA — deferred to Phase 3, which is what consumes the tree
 - [x] Report a registry entry that rebuilds to the deployed binary but which the registry does not currently mark verified. The gate is unchanged and such an entry is never treated as a verified build; it is named, with the registry's own stale hash as the stated reason it did not qualify
 
@@ -94,17 +94,27 @@ That leaves **4 of 47 transactions** failing in a verified program, and none of 
 
 The blocker is that verified builds are rare, not that static analysis is hard. The realistic unlock is a **local source path** — a developer debugging their own program has the tree checked out — which also subsumes the local-IDL item deferred out of Phase 2. Confidence would cap below `exact` for anything derived from such a tree, since it is not hash-proven against the deployed binary.
 
+**Built, on that second premise rather than the first.** A *local* path conflicts with solvbana being a hosted service, so the tree arrives the way the IDL and the binary already do: `POST /artifacts` takes a `source` map of path to contents. `narrowed` is reachable for the first time, and `CandidateSite` — present since the first commit and empty ever since — now holds something.
+
+**The filter is the error variant, not reachability.** Phase 1 or 2 has already established the name, so the only question is which lines raise *that* variant. A program raises a given custom error once or twice, so the variant filter does nearly all of the narrowing, and it needs a lexical index rather than a Rust front end and a call graph. That is what made the phase tractable at all. Reachability filtering, CPI progress bounding and log-breadcrumb bounding stay unbuilt; ranking is lexical containment in the failing handler, and every rationale says so rather than implying the stronger thing.
+
+**An uploaded tree has to prove it describes the program that ran** — the same demand already made of an uploaded IDL, which must carry the discriminator the failing instruction used. The proof is Anchor's own numbering: `#[error_code]` assigns codes sequentially from 6000, so declaration order maps the transaction's `Custom(n)` back to a name, and agreement with the name established independently means two unrelated sources concur. Disagreement means a different revision, and **every candidate from it is refused** — a line number from the wrong version is worse than none, and it is precisely the plausible-and-wrong answer this project exists to avoid.
+
+Three further refusals, each reported rather than silent: no error name established and there is nothing to search for, which is 68% of live failures; the variant declared but never raised, so the tree is missing a file or the error comes from a dependency; the variant raised but never inside the failing handler, reported unranked because a helper call is something a lexical index cannot follow.
+
+**What this cannot yet measure.** The regression metric below asks how often the correct site is uniquely identified and how often it lands in the top three. That needs real trees for real corpus failures, and no corpus program publishes source — the same shortfall that deferred the phase originally, and the redesign does not fix it. The synthetic trees under `fixtures/source/` score the mechanics; the real number stays uncomputed until someone uploads a real tree. Do not read the passing suite as coverage of that question.
+
 - [x] Parse instruction data: first 8 bytes → discriminator → handler name (via IDL). Done in Phase 2 — Anchor programs log their handler name and Phase 1 reads it, and the discriminator covers the ones that do not
 - [x] Accept an uploaded IDL and program binary, cross-checked against the observed discriminators and the deployed binary's hash. `POST /artifacts` into a content-addressed store behind an `ArtifactStore` port; the IDL is read during diagnosis, the binary's verdict is settled at upload
-- [ ] Accept a local *source tree*, once there is a proven binary to map it against
-- [ ] Fetch and cache the source tree at the verified commit Phase 2 resolved
-- [ ] Static analysis pass over the resolved source: index every `require!`, `require_eq!`, `require_keys_eq!`, `err!`, `return Err(...)` with file, line, and the error variant it raises
-- [ ] Call graph from handler entry points; reachability filter to drop throw sites the failing handler can't reach
+- [x] Accept a *source tree*, uploaded rather than read from a local path, since the server has no access to a developer's checkout. Proven against the deployed program by Anchor's `#[error_code]` numbering
+- [ ] Fetch and cache the source tree at the verified commit Phase 2 resolved — still blocked on verified builds being rare
+- [x] Static analysis pass over the supplied source: index every `require!`, `require_eq!`, `require_keys_eq!`, `err!`, `return Err(...)`, `.ok_or(...)` and `#[account(... @ E::X)]` with file, line, and the error variant it raises
+- [ ] Call graph from handler entry points; reachability filter to drop throw sites the failing handler can't reach. Ranking uses lexical containment instead, which is weaker and says so
 - [ ] **CPI progress bounding:** compare observed inner instructions against CPI call sites in the handler — failure is bounded between the last completed CPI and the next one
 - [ ] **Log breadcrumb bounding:** each observed `msg!` in the source establishes a lower bound on execution position
-- [ ] Combine all filters; rank surviving candidates
-- [ ] Report the full candidate set when more than one survives — never present a guess as certainty
-- [ ] Regression check: on the fixture corpus, measure how often the correct site is (a) uniquely identified, (b) in the top 3
+- [x] Combine all filters; rank surviving candidates
+- [x] Report the full candidate set when more than one survives — never present a guess as certainty
+- [ ] Regression check: on the fixture corpus, measure how often the correct site is (a) uniquely identified, (b) in the top 3. **Not computable**: no corpus program publishes source, so there is no real tree to score against
 - [x] Before any of the above: harvest fixtures that can measure it. Two `ConstraintSeeds` failures are now in the corpus, found by matching the `Error Code:` line the program printed about itself rather than Anchor's reserved code range — `harvest.ts --want <Name>` does this, and filtering on the range would have been the same guess the engine refuses. `ConstraintHasOne` did not occur in the same 300-block scan and remains unrepresented
 
 ### What the artifact path reaches
@@ -128,7 +138,7 @@ One trap the measurement itself had. Attributing more programs means resolution 
 
 **Done when:** a `Custom(6001)` failure resolves to one or two `require!` sites in the correct handler, with the source excerpt shown.
 
-`narrowed` remains unused across the codebase, and a corpus test asserts it stays that way until this phase lands.
+`narrowed` is now reachable, and only through uploaded source. The corpus tests still assert it never appears there — no corpus fixture has a tree — which has stopped being a "not built yet" marker and become an assertion that narrowing never runs on evidence it does not have.
 
 ---
 
