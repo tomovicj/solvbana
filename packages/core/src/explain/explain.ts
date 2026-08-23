@@ -16,14 +16,19 @@ import type { AccountRow, DecodedArg, DerivationCheck, Explanation } from './typ
  * The blamed account and the operand pair, which travel together.
  *
  * Both come off the same `anchor` failure variant, and the comparison can only
- * be oriented against the account table once the blamed name is in hand.
+ * be oriented once the blamed name, the account table and the decoded arguments
+ * are all in hand — which is why this runs late rather than beside `analyze`.
  */
-function anchorEvidence(finding: Finding, accounts: readonly AccountRow[]) {
+function anchorEvidence(
+  finding: Finding,
+  accounts: readonly AccountRow[],
+  args: readonly DecodedArg[],
+) {
   if (finding.failure.kind !== 'anchor') return { blamed: null, comparison: null };
   const { account, comparison } = finding.failure;
   return {
     blamed: account,
-    comparison: comparison === null ? null : readComparison(comparison, account, accounts),
+    comparison: comparison === null ? null : readComparison(comparison, account, accounts, args),
   };
 }
 
@@ -102,7 +107,7 @@ export async function explainFailure(
   if (node === null) {
     // No account table, so no row to orient the operands against — but the pair
     // itself is still worth reading, and a numeric comparison never needed one.
-    const { comparison } = anchorEvidence(finding, []);
+    const { comparison } = anchorEvidence(finding, [], []);
     return {
       accounts: [],
       args: null,
@@ -110,7 +115,7 @@ export async function explainFailure(
       compute,
       deltas,
       comparison,
-      guidance: buildGuidance(finding, [], [], comparison),
+      guidance: buildGuidance(finding, [], [], comparison, []),
       notes,
     };
   }
@@ -155,7 +160,7 @@ export async function explainFailure(
   // The associated-token search is run only for the account the error blamed.
   // Running it across every account would return true but useless negatives for
   // the ones that were never meant to be token accounts.
-  const { blamed, comparison } = anchorEvidence(finding, accounts);
+  const { blamed, comparison } = anchorEvidence(finding, accounts, args ?? []);
   if (blamed !== null && !derivations.some((check) => check.account === blamed)) {
     const row = accounts.find((entry) => entry.name === blamed);
     if (row !== undefined) {
@@ -171,7 +176,7 @@ export async function explainFailure(
     compute,
     deltas,
     comparison,
-    guidance: buildGuidance(finding, accounts, derivations, comparison),
+    guidance: buildGuidance(finding, accounts, derivations, comparison, args ?? []),
     notes,
   };
 }

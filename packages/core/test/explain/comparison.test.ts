@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { passedSide, readComparison, requiredSide, type AccountRow } from '@solvbana/core';
+import {
+  passedSide,
+  readComparison,
+  requiredSide,
+  type AccountRow,
+  type DecodedArg,
+} from '@solvbana/core';
 
 const VAULT = '8N3GDaZ2iwN65oxVatKTLPNooAVUJTbfiVJ1ahyqwjSk';
 const DERIVED = 'GMc58fp264TR3fB7JnS9jVYy4fqJQx3N9Hx4UWw9zspD';
@@ -123,5 +129,94 @@ describe('readComparison', () => {
     const read = readComparison({ left: '-5', right: '5' }, null, []);
     expect(read.numeric?.difference).toBe(10n);
     expect(read.numeric?.relative).toBeCloseTo(2, 5);
+  });
+});
+
+function arg(name: string, value: string | null): DecodedArg {
+  return { name, type: 'u64', value };
+}
+
+describe('readComparison, oriented by the instruction arguments', () => {
+  it('proves orientation when one argument carries one operand', () => {
+    // A value the client encoded into the instruction data and that then shows
+    // up as an operand is a value the client supplied. This is the only proof
+    // available for a numeric comparison, which has no address to match.
+    const read = readComparison(
+      { left: '412250202354', right: '428963556055' },
+      null,
+      [],
+      [arg('spendable_quote_in', '800000000'), arg('min_base_amount_out', '428963556055')],
+    );
+
+    expect(read.argument).toEqual({ name: 'min_base_amount_out', side: 'right' });
+    expect(read.passed).toBe('right');
+    expect(passedSide(read)).toBe('428963556055');
+    expect(requiredSide(read)).toBe('412250202354');
+  });
+
+  it('names the argument but claims no side when the operands are equal', () => {
+    // `require_gt!(0, 0)` against `minimum_amount_out = 0`. The zero provably
+    // came from that argument; which zero it is remains undetermined, and
+    // collapsing the two claims would assert the second from the first.
+    const read = readComparison(
+      { left: '0', right: '0' },
+      null,
+      [],
+      [arg('amount_in', '1'), arg('minimum_amount_out', '0')],
+    );
+
+    expect(read.argument).toEqual({ name: 'minimum_amount_out', side: null });
+    expect(read.passed).toBeNull();
+    expect(requiredSide(read)).toBeNull();
+  });
+
+  it('claims nothing when two arguments carry the same value', () => {
+    const read = readComparison(
+      { left: '5', right: '9' },
+      null,
+      [],
+      [arg('minimum', '5'), arg('floor', '5')],
+    );
+
+    expect(read.argument).toBeNull();
+    expect(read.passed).toBeNull();
+  });
+
+  it('matches integers by value rather than by text', () => {
+    // A formatting difference between how an argument renders and how the
+    // program printed it must not silently break the match.
+    const read = readComparison({ left: '7', right: '10' }, null, [], [arg('cap', '007')]);
+    expect(read.argument).toEqual({ name: 'cap', side: 'left' });
+  });
+
+  it('ignores arguments whose type this tier could not decode', () => {
+    const read = readComparison({ left: '1', right: '2' }, null, [], [arg('opaque', null)]);
+    expect(read.argument).toBeNull();
+  });
+
+  it('keeps the address proof when the argument agrees with it', () => {
+    const read = readComparison(
+      { left: VAULT, right: DERIVED },
+      'vault',
+      [row('vault', VAULT)],
+      [arg('target', VAULT)],
+    );
+
+    expect(read.passed).toBe('left');
+    expect(read.argument).toEqual({ name: 'target', side: 'left' });
+  });
+
+  it('refuses when the two proofs disagree', () => {
+    // They are independent reads of the same record, so a conflict means one is
+    // wrong about this transaction and nothing licenses choosing which.
+    const read = readComparison(
+      { left: VAULT, right: DERIVED },
+      'vault',
+      [row('vault', VAULT)],
+      [arg('target', DERIVED)],
+    );
+
+    expect(read.passed).toBeNull();
+    expect(read.argument).toEqual({ name: 'target', side: 'right' });
   });
 });

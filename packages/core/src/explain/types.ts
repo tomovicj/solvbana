@@ -207,6 +207,18 @@ export interface ReadComparison {
   passed: 'left' | 'right' | null;
   /** The blamed account's recorded address, when a row was matched. */
   account: string | null;
+  /**
+   * The instruction argument whose value an operand carried, when exactly one
+   * argument carried exactly one operand.
+   *
+   * `side` names which operand it matched and is `null` when it matched both,
+   * which is what an equal pair produces. That is the weaker of two claims and
+   * the distinction is load-bearing: matching identifies where a value came
+   * from, and settles which side the client *supplied* only when the operands
+   * differ. `require_gt!(0, 0)` against `minimum_amount_out = 0` proves the zero
+   * came from that argument and nothing about which zero.
+   */
+  argument: { name: string; side: 'left' | 'right' | null } | null;
   /** The gap between the operands, when both parse as integers. */
   numeric: {
     /** Absolute difference, so it does not depend on which side is which. */

@@ -420,6 +420,13 @@ const ReadComparisonSchema = Type.Object({
   right: Type.String(),
   passed: Type.Union([Type.Literal('left'), Type.Literal('right'), Type.Null()]),
   account: Type.Union([Type.String(), Type.Null()]),
+  argument: Type.Union([
+    Type.Object({
+      name: Type.String(),
+      side: Type.Union([Type.Literal('left'), Type.Literal('right'), Type.Null()]),
+    }),
+    Type.Null(),
+  ]),
   numeric: Type.Union([
     Type.Object({
       difference: Type.String(),
@@ -534,6 +541,21 @@ export const EXPLANATION_SCHEMA_COVERS_CORE: keyof Explanation extends keyof Exp
   : never = true;
 
 export const DERIVATION_STATUS_SCHEMA_COVERS_CORE: Explanation['derivations'][number]['status'] extends ExplanationWire['derivations'][number]['status']
+  ? true
+  : never = true;
+
+/**
+ * The comparison's own fields, checked separately for the same reason.
+ *
+ * `EXPLANATION_SCHEMA_COVERS_CORE` compares top-level keys only, so a field
+ * added to `ReadComparison` typechecks cleanly and is then dropped at
+ * serialization, because `fast-json-stringify` emits exactly what the schema
+ * declares. That failure is silent and only visible to whoever reads the
+ * response — which is the whole reason these guards exist.
+ */
+export const COMPARISON_SCHEMA_COVERS_CORE: keyof NonNullable<
+  Explanation['comparison']
+> extends keyof NonNullable<ExplanationWire['comparison']>
   ? true
   : never = true;
 
