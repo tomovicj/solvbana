@@ -145,4 +145,91 @@ describe('the filesystem artifact store', () => {
 
     expect(await artifacts.fetchIdl(PROGRAM)).toBeNull();
   });
+
+  it('counts source files in listPrograms without reading them', async () => {
+    const { artifacts } = await store();
+    await artifacts.putSource(PROGRAM, [
+      { path: 'src/lib.rs', contents: 'lib' },
+      { path: 'src/a/b.rs', contents: 'b' },
+    ]);
+
+    expect(await artifacts.listPrograms()).toEqual([
+      { programId: PROGRAM, idl: false, sourceFiles: 2 },
+    ]);
+  });
+
+  it('keeps one program intact when uploads for it run concurrently', async () => {
+    const { artifacts, directory } = await store();
+    await Promise.all(
+      Array.from({ length: 8 }, (_, i) =>
+        artifacts.putSource(PROGRAM, [{ path: 'src/lib.rs', contents: `v${String(i)}` }]),
+      ),
+    );
+
+    const fetched = await artifacts.fetchSource(PROGRAM);
+    expect(fetched?.files).toHaveLength(1);
+    expect(fetched?.files[0]?.contents).toMatch(/^v[0-7]$/);
+    // No .new-* or .old-* directory leaked.
+    expect(await readdir(join(directory, 'src'))).toEqual([PROGRAM]);
+  });
+
+  it('never returns a mixture of trees while one is being replaced', async () => {
+    const { artifacts } = await store();
+    const tree = (tag: string) => [
+      { path: 'a.rs', contents: tag },
+      { path: 'b.rs', contents: tag },
+    ];
+    await artifacts.putSource(PROGRAM, tree('old'));
+
+    const writes = (async () => {
+      for (let i = 0; i < 20; i += 1) await artifacts.putSource(PROGRAM, tree(`n${String(i)}`));
+    })();
+    const reads: Awaited<ReturnType<typeof artifacts.fetchSource>>[] = [];
+    while (reads.length < 200) {
+      reads.push(await artifacts.fetchSource(PROGRAM));
+      if (reads.length % 20 === 0) await new Promise((r) => setImmediate(r));
+    }
+    await writes;
+
+    for (const read of reads) {
+      if (read === null) continue;
+      expect(new Set(read.files.map((f) => f.contents)).size).toBe(1);
+    }
+  });
+
+  it('writes a binary through a temporary file that does not linger', async () => {
+    const { artifacts, directory } = await store();
+    const stored = await artifacts.putBinary(Uint8Array.from([1, 2, 3, 4]));
+
+    expect(await readdir(join(directory, 'bin'))).toEqual([`${stored.hash}.so`]);
+    expect(await artifacts.fetchBinary(stored.hash)).toEqual(Uint8Array.from([1, 2, 3, 4]));
+  });
+
+  it('rejects a tree where a path is a directory of another', async () => {
+    const { artifacts } = await store();
+    for (const files of [
+      [{ path: 'src/x.rs/inner.rs', contents: 'a' }],
+      [
+        { path: 'a.rs', contents: 'a' },
+        { path: 'a.rs/b.rs', contents: 'b' },
+      ],
+    ]) {
+      await expect(artifacts.putSource(PROGRAM, files)).rejects.toThrow(TypeError);
+    }
+  });
+
+  it('skips a pre-existing directory named like a source file', async () => {
+    const { artifacts, directory } = await store();
+    await artifacts.putSource(PROGRAM, [
+      { path: 'src/lib.rs', contents: 'lib' },
+      { path: 'src/b.rs', contents: 'b' },
+    ]);
+    const { mkdir } = await import('node:fs/promises');
+    await mkdir(join(directory, 'src', PROGRAM, 'src', 'x.rs'));
+
+    expect((await artifacts.fetchSource(PROGRAM))?.files).toHaveLength(2);
+    expect(await artifacts.listPrograms()).toEqual([
+      { programId: PROGRAM, idl: false, sourceFiles: 2 },
+    ]);
+  });
 });

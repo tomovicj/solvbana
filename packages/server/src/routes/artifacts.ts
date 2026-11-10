@@ -8,7 +8,11 @@ import {
   type AccountSource,
 } from '@solvbana/core';
 import type { App } from '../app.ts';
-import { isSafeSourcePath, type WritableArtifactStore } from '../artifacts/store.ts';
+import {
+  conflictingSourcePaths,
+  isSafeSourcePath,
+  type WritableArtifactStore,
+} from '../artifacts/store.ts';
 
 /**
  * Most source files accepted in one upload.
@@ -18,7 +22,7 @@ import { isSafeSourcePath, type WritableArtifactStore } from '../artifacts/store
  * so this bounds the file *count* the indexer walks.
  */
 const MAX_SOURCE_FILES = 1000;
-import { ArtifactsBody, ArtifactsResponse } from '../schemas/artifacts.ts';
+import { ArtifactsBody, ArtifactsListResponse, ArtifactsResponse } from '../schemas/artifacts.ts';
 import { ErrorResponse, errorBody } from '../schemas/error.ts';
 
 /** The verdict shape the response declares, named so the helper below can return it. */
@@ -71,11 +75,28 @@ function identify(body: ArtifactsBody): Identified {
     : { ok: false, message: parsed.message };
 }
 
+function disabled() {
+  return errorBody(
+    'artifacts_disabled',
+    'No artifact store is configured. Set SOLVBANA_ARTIFACT_DIR to accept uploads.',
+  );
+}
+
 export function registerArtifactRoutes(
   app: App,
-  artifacts: WritableArtifactStore | undefined,
+  storeFor: (tenant: string) => WritableArtifactStore | undefined,
   accounts: AccountSource | undefined,
 ): void {
+  app.get(
+    '/artifacts',
+    { schema: { response: { 200: ArtifactsListResponse, 503: ErrorResponse } } },
+    async (request, reply) => {
+      const artifacts = storeFor(request.tenant);
+      if (artifacts === undefined) return reply.code(503).send(disabled());
+      return { programs: await artifacts.listPrograms() };
+    },
+  );
+
   app.post(
     '/artifacts',
     {
@@ -85,16 +106,8 @@ export function registerArtifactRoutes(
       },
     },
     async (request, reply) => {
-      if (artifacts === undefined) {
-        return reply
-          .code(503)
-          .send(
-            errorBody(
-              'artifacts_disabled',
-              'No artifact store is configured. Set SOLVBANA_ARTIFACT_DIR to accept uploads.',
-            ),
-          );
-      }
+      const artifacts = storeFor(request.tenant);
+      if (artifacts === undefined) return reply.code(503).send(disabled());
 
       const body = request.body;
       if (body.idl === undefined && body.binary === undefined && body.source === undefined) {
@@ -158,13 +171,16 @@ export function registerArtifactRoutes(
 
         // Validated before anything is joined onto a directory, which is the
         // same stance the program id and hash checks already take.
-        const rejected = files.filter((file) => !isSafeSourcePath(file.path));
+        const conflicts = new Set(conflictingSourcePaths(files.map((file) => file.path)));
+        const rejected = files.filter(
+          (file) => !isSafeSourcePath(file.path) || conflicts.has(file.path),
+        );
         if (rejected.length > 0) {
           return reply.code(400).send(
             errorBody(
               'unreadable_source',
               'Every source path must be a relative, forward-slashed `.rs` file with no `..` ' +
-                'segment.',
+                'segment, and no path may be a directory of another or have a directory ending `.rs`.',
               rejected.slice(0, 5).map((file) => file.path),
             ),
           );
@@ -188,6 +204,17 @@ export function registerArtifactRoutes(
             'established; it never names one. It is not hash-proven against the deployed binary, ' +
             'so a diagnosis using it caps at `narrowed` and never reaches `exact`.',
         );
+        // The indexer skips what is over its size caps rather than truncating
+        // it. The files are stored regardless, so this is the one moment to say
+        // which of them no diagnosis will ever search.
+        for (const entry of index.skipped.slice(0, 5)) {
+          notes.push(`Not searched: ${entry.path} — ${entry.reason}`);
+        }
+        if (index.skipped.length > 5) {
+          notes.push(
+            `${String(index.skipped.length - 5)} further part(s) of the source were not searched.`,
+          );
+        }
         if (index.enums.length === 0) {
           notes.push(
             'No #[error_code] enum was found in the uploaded source, so the tree cannot be ' +

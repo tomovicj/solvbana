@@ -278,7 +278,7 @@ describe('POST /artifacts with source', () => {
       payload: { programId: PROGRAM, source: SOURCE },
     });
 
-    const tree = await store.fetchSource!(PROGRAM);
+    const tree = await store.fetchSource(PROGRAM);
     expect(tree?.files).toEqual([{ path: 'src/lib.rs', contents: SOURCE['src/lib.rs'] }]);
   });
 
@@ -293,6 +293,19 @@ describe('POST /artifacts with source', () => {
 
     expect(response.statusCode).toBe(400);
     expect(response.json<ErrorBody>().error.code).toBe('unreadable_source');
+  });
+
+  it('refuses a tree where one path is a directory of another', async () => {
+    const app = await appWithStore();
+    for (const source of [{ 'src/x.rs/inner.rs': 'x' }, { 'a.rs': 'x', 'a.rs/b.rs': 'y' }]) {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/artifacts',
+        payload: { programId: PROGRAM, source },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json<ErrorBody>().error.code).toBe('unreadable_source');
+    }
   });
 
   it('refuses a file that is not Rust', async () => {

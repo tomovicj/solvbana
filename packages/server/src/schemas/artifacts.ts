@@ -97,3 +97,18 @@ export const ArtifactsResponse = Type.Object({
 });
 
 export type ArtifactsResponse = Static<typeof ArtifactsResponse>;
+
+/** What the calling tenant has filed, per program. Never another tenant's. */
+export const ArtifactsListResponse = Type.Object({
+  programs: Type.Array(
+    Type.Object({
+      programId: Type.String(),
+      /** Whether an IDL is filed. */
+      idl: Type.Boolean(),
+      /** How many source files are filed. */
+      sourceFiles: Type.Integer(),
+    }),
+  ),
+});
+
+export type ArtifactsListResponse = Static<typeof ArtifactsListResponse>;

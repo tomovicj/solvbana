@@ -24,6 +24,15 @@ export interface ResolveOptions extends VerifyOptions {
    * expensive step waits until something will use it.
    */
   verifySource?: boolean;
+  /**
+   * Whose artifact store these results were derived from; results are never
+   * served across scopes.
+   *
+   * Opaque to this tier. A result may embed an IDL read from `deps.artifacts`,
+   * so two callers with different stores must not share a cache entry for the
+   * same program. What a scope *means* is the caller's business.
+   */
+  cacheScope?: string | undefined;
 }
 
 /** Everything a resolution needs, plus the cache it shares across one process. */
@@ -115,9 +124,21 @@ export function createResolutionCache(capacity: number = DEFAULT_CACHE_CAPACITY)
  */
 const cache = createResolutionCache();
 
+/**
+ * How many times each program has been forgotten.
+ *
+ * A resolution that began before `forgetProgram` may finish after it, and storing
+ * its result would resurrect exactly the entry the forget was meant to drop. So a
+ * resolution notes the generation before its first await and stores only if it is
+ * unchanged. Bounded by the number of distinct programs ever forgotten (one small
+ * integer each) and emptied by `clearResolutionCache`.
+ */
+const generations = new Map<string, number>();
+
 /** Drop everything cached. Exists so tests do not leak resolutions into each other. */
 export function clearResolutionCache(): void {
   cache.clear();
+  generations.clear();
 }
 
 /**
@@ -130,6 +151,7 @@ export function clearResolutionCache(): void {
  * diagnosis after an upload keeps answering from before it.
  */
 export function forgetProgram(programId: string): void {
+  generations.set(programId, (generations.get(programId) ?? 0) + 1);
   cache.forgetProgram(programId);
 }
 
@@ -147,6 +169,7 @@ export async function resolveProgram(
   deps: ResolveDeps,
   options: ResolveOptions = {},
 ): Promise<ResolutionResult> {
+  const generation = generations.get(programId) ?? 0;
   const notes: string[] = [];
   const deployment = await resolveDeployment(programId, failingSlot, deps.accounts);
   notes.push(describeDeployment(deployment));
@@ -159,7 +182,10 @@ export async function resolveProgram(
   const cacheKey =
     deployment.kind === 'live'
       ? `${programId}@${String(deployment.lastDeploySlot)}:${String(options.verifySource ?? false)}:` +
-        `${[...(options.observedDiscriminators ?? [])].sort().join(',')}`
+        `${[...(options.observedDiscriminators ?? [])].sort().join(',')}` +
+        // `|` occurs in none of the parts before it (base58, digits, `true`/`false`,
+        // hex and commas), so no scope can be confused with part of the key.
+        `|${options.cacheScope ?? ''}`
       : null;
 
   const cached = cacheKey === null ? undefined : cache.get(cacheKey);
@@ -229,6 +255,8 @@ export async function resolveProgram(
     idl,
   };
 
-  if (cacheKey !== null) cache.set(cacheKey, result);
+  if (cacheKey !== null && (generations.get(programId) ?? 0) === generation) {
+    cache.set(cacheKey, result);
+  }
   return result;
 }

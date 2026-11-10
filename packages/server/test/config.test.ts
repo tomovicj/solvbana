@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from '../src/config.ts';
 
-const MINIMAL = { SOLANA_RPC_URL: 'https://api.mainnet-beta.solana.com' };
+const MINIMAL = {
+  SOLANA_RPC_URL: 'https://api.mainnet-beta.solana.com',
+  SOLVBANA_ALLOW_UNAUTHENTICATED: 'true',
+};
 
 describe('loadConfig', () => {
   it('applies defaults for everything but the RPC URL', () => {

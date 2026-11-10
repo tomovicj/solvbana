@@ -4,6 +4,7 @@ import {
   forgetProgram,
   resolveProgram,
   type AccountSource,
+  type ArtifactStore,
 } from '@solvbana/core';
 import { createResolutionCache } from '../../src/resolve/resolve.ts';
 import { corpusAccounts } from '../fixtures.ts';
@@ -87,12 +88,96 @@ describe('the resolution cache', () => {
     expect(reads() - before).toBeGreaterThan(1);
   });
 
+  it('never shares an entry between scopes, and shares one within a scope', async () => {
+    const { source } = counting();
+    const a1 = await resolveProgram(PROGRAM_A, LATER, { accounts: source }, { cacheScope: 'a' });
+    const b1 = await resolveProgram(PROGRAM_A, LATER, { accounts: source }, { cacheScope: 'b' });
+    expect(b1).not.toBe(a1);
+    expect(await resolveProgram(PROGRAM_A, LATER, { accounts: source }, { cacheScope: 'a' })).toBe(
+      a1,
+    );
+    expect(await resolveProgram(PROGRAM_A, LATER, { accounts: source }, { cacheScope: 'b' })).toBe(
+      b1,
+    );
+  });
+
+  it("keeps one scope's uploaded IDL out of another scope", async () => {
+    const { source } = counting();
+    const supplied: ArtifactStore = {
+      fetchIdl: () =>
+        Promise.resolve({
+          document: {
+            name: 'mine',
+            instructions: [{ name: 'go', accounts: [], args: [] }],
+            errors: [],
+          },
+        }),
+    };
+    const empty: ArtifactStore = { fetchIdl: () => Promise.resolve(null) };
+    const observed = { observedDiscriminators: [] as string[] };
+    const withIdl = await resolveProgram(
+      PROGRAM_A,
+      LATER,
+      { accounts: source, artifacts: supplied },
+      { ...observed, cacheScope: 'a' },
+    );
+    const without = await resolveProgram(
+      PROGRAM_A,
+      LATER,
+      { accounts: source, artifacts: empty },
+      { ...observed, cacheScope: 'b' },
+    );
+    expect(without).not.toBe(withIdl);
+    expect(without.resolution.notes.join('\n')).not.toContain('mine');
+  });
+
+  it('forgetProgram clears every scope', async () => {
+    const { source } = counting();
+    const a = await resolveProgram(PROGRAM_A, LATER, { accounts: source }, { cacheScope: 'a' });
+    const b = await resolveProgram(PROGRAM_A, LATER, { accounts: source }, { cacheScope: 'b' });
+    forgetProgram(PROGRAM_A);
+    expect(
+      await resolveProgram(PROGRAM_A, LATER, { accounts: source }, { cacheScope: 'a' }),
+    ).not.toBe(a);
+    expect(
+      await resolveProgram(PROGRAM_A, LATER, { accounts: source }, { cacheScope: 'b' }),
+    ).not.toBe(b);
+  });
+
   it('never caches a non-live deployment', async () => {
     const { source } = counting();
     const one = await resolveProgram(PROGRAM_A, EARLIER, { accounts: source });
     expect(one.resolution.deployment.kind).toBe('upgraded-since');
     const two = await resolveProgram(PROGRAM_A, EARLIER, { accounts: source });
     expect(two).not.toBe(one);
+  });
+
+  it('does not store a resolution that was in flight when the program was forgotten', async () => {
+    const inner = corpusAccounts([PROGRAM_A, PROGRAM_B]);
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let held = true;
+    const slow: AccountSource = {
+      fetchAccount: (address) => inner.fetchAccount(address),
+      fetchAccountPrefix: async (address, length) => {
+        if (held) await gate;
+        return inner.fetchAccountPrefix(address, length);
+      },
+    };
+
+    const pending = resolveProgram(PROGRAM_A, LATER, { accounts: slow });
+    await Promise.resolve();
+    forgetProgram(PROGRAM_A);
+    held = false;
+    release();
+    const stale = await pending;
+
+    // The in-flight call still answers its caller, but the next one recomputes.
+    const next = await resolveProgram(PROGRAM_A, LATER, { accounts: slow });
+    expect(next).not.toBe(stale);
+    expect(await resolveProgram(PROGRAM_A, LATER, { accounts: slow })).toBe(next);
   });
 
   it('clearResolutionCache drops everything', async () => {
