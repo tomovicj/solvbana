@@ -1,3 +1,4 @@
+import { deflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import {
   anchorBuiltinFor,
@@ -5,9 +6,11 @@ import {
   deriveDiscriminator,
   handlerForDiscriminator,
   idlAddressFor,
+  MAX_IDL_INFLATED_BYTES,
   resolveIdl,
   type ResolvedIdl,
 } from '@solvbana/core';
+import type { AccountSource } from '@solvbana/core';
 import { programSnapshot, readJson, snapshotAccounts } from '../fixtures.ts';
 
 /** Anchor 0.30+: `metadata.spec`, snake_case names, explicit discriminators. */
@@ -92,6 +95,47 @@ describe('resolveIdl', () => {
     const outcome = await resolveIdl(MODERN, snapshotAccounts({ ...snapshot, programId: MODERN }));
 
     expect(outcome.kind).toBe('unreadable');
+  });
+});
+
+function idlAccountOf(payload: Buffer): Uint8Array {
+  const compressed = deflateSync(payload);
+  const header = Buffer.alloc(44);
+  header.writeUInt32LE(compressed.length, 40);
+  return Uint8Array.from(Buffer.concat([header, compressed]));
+}
+
+function sourceOf(bytes: Uint8Array): AccountSource {
+  const account = {
+    address: 'idl',
+    owner: 'owner',
+    executable: false,
+    data: Buffer.from(bytes).toString('base64'),
+    size: bytes.length,
+    readAtSlot: 1n,
+  };
+  return {
+    fetchAccount: () => Promise.resolve(account),
+    fetchAccountPrefix: () => Promise.resolve(account),
+  };
+}
+
+describe('IDL inflation bound', () => {
+  it('refuses an account that inflates past the limit, and says why', async () => {
+    const bytes = idlAccountOf(Buffer.alloc(MAX_IDL_INFLATED_BYTES + 1, 0x20));
+    const outcome = await resolveIdl(MODERN, sourceOf(bytes));
+
+    expect(outcome).toMatchObject({ kind: 'unreadable' });
+    expect(outcome.kind === 'unreadable' && outcome.reason).toBe(
+      `The IDL account inflates past the ${String(MAX_IDL_INFLATED_BYTES)} byte limit and was not read.`,
+    );
+  });
+
+  it('still decodes a small IDL', () => {
+    const doc = { name: 'tiny', version: '0.1.0', instructions: [], errors: [] };
+    const bytes = idlAccountOf(Buffer.from(JSON.stringify(doc)));
+
+    expect(decodeIdlAccount(bytes, 'addr')).toMatchObject({ programName: 'tiny' });
   });
 });
 

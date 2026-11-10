@@ -24,6 +24,7 @@ export {
 } from './signature.ts';
 
 export { diagnose, type DiagnoseDeps } from './diagnose.ts';
+export { describeError } from './redact.ts';
 
 export { analyze, type Analysis } from './analyze/analyze.ts';
 
@@ -100,6 +101,7 @@ export {
 
 export {
   decodeIdlAccount,
+  MAX_IDL_INFLATED_BYTES,
   deriveDiscriminator,
   handlerForDiscriminator,
   idlAddressFor,

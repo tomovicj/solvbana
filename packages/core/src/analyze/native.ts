@@ -119,6 +119,7 @@ export function isNativeProgram(programId: string | null): boolean {
 /** Look up a `Custom(code)` in the pinned program's published error enum. */
 export function nativeError(programId: string | null, code: number): NativeError | null {
   if (programId === null) return null;
+  if (!Object.hasOwn(TABLES, programId)) return null;
   return TABLES[programId]?.[code] ?? null;
 }
 
@@ -187,5 +188,5 @@ const RUNTIME_VARIANTS: Record<string, string> = {
 };
 
 export function explainRuntimeVariant(variant: string): string | null {
-  return RUNTIME_VARIANTS[variant] ?? null;
+  return Object.hasOwn(RUNTIME_VARIANTS, variant) ? (RUNTIME_VARIANTS[variant] ?? null) : null;
 }

@@ -1,5 +1,6 @@
 import { analyze, type Analysis } from './analyze/analyze.ts';
 import type { Finding } from './analyze/types.ts';
+import { describeError } from './redact.ts';
 import { unknownDiagnosis, type Diagnosis } from './diagnosis.ts';
 import { describeTransactionError, failingInstructionIndex } from './ingest/error.ts';
 import { normalizeTransaction } from './ingest/normalize.ts';
@@ -99,9 +100,7 @@ async function withResolution(
         ...analysis,
         reasons: [
           ...analysis.reasons,
-          `Source resolution failed and was skipped: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
+          `Source resolution failed and was skipped: ${describeError(error)}`,
         ],
       },
       idl: null,
@@ -280,9 +279,7 @@ async function withNarrowing(
         ...analysis,
         reasons: [
           ...analysis.reasons,
-          `Source narrowing failed and was skipped: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
+          `Source narrowing failed and was skipped: ${describeError(error)}`,
         ],
       },
       declaration: null,
@@ -315,9 +312,7 @@ async function withExplanation(
   } catch (error) {
     return {
       explanation: undefined,
-      reason: `The explanation could not be built and was skipped: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      reason: `The explanation could not be built and was skipped: ${describeError(error)}`,
     };
   }
 }

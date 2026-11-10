@@ -5,6 +5,7 @@ import {
   type Signature,
 } from '@solana/kit';
 import type { RawTransaction } from '../ingest/types.ts';
+import { describeError } from '../redact.ts';
 import type {
   AccountSnapshot,
   AccountSource,
@@ -62,7 +63,7 @@ function unsupportedVersionOf(error: unknown): number | null | undefined {
 }
 
 function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  return describeError(error);
 }
 
 async function getTransaction(rpc: Rpc, signature: Signature): Promise<RawTransaction | null> {
