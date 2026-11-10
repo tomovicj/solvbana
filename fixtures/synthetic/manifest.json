@@ -230,6 +230,51 @@
         "account": null,
         "note": "A bare Custom(6001) from a program that published no name for it. 6001 is in the range Anchor gives user-declared errors, which is exactly why it must not be named: the range is a convention, not evidence. The handler is still readable from the Anchor prologue."
       }
+    },
+    {
+      "file": "v1-compute-exhausted.json",
+      "case": "version 1 transaction whose ComputeBudget instruction disagrees with its transactionConfig",
+      "failingInstructionIndex": 1,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "named",
+      "expectTruncatedLogs": false,
+      "expectAbsentLogs": false,
+      "expectUnresolvedLookups": false,
+      "expectCpiDepthUnavailable": false,
+      "note": "Adapted from the recorded version 1 transaction 2Ku3fgEn\u2026: a SetComputeUnitLimit of 300000 is added alongside a transactionConfig.computeUnitLimit of 38, and the program is cut off at 38 of 38. The runtime metered against the config, so the config value is the limit to report and the instruction is not.",
+      "phase1": {
+        "confidence": "variant-only",
+        "program": "W1LDCARDa67SPBG7TFpQivHnEZXRtxCFP13ysEd1bWR",
+        "programSource": "logs",
+        "handler": null,
+        "errorName": "ProgramFailedToComplete",
+        "errorNumber": null,
+        "site": null,
+        "account": null,
+        "note": "Compute exhaustion names no line. The logged budget (38) follows transactionConfig, which the diagnosis test asserts is reported as the requested limit."
+      }
+    },
+    {
+      "file": "v1-with-lookups.json",
+      "case": "version 1 transaction that breaks the version 1 account invariants",
+      "failingInstructionIndex": 0,
+      "errorKind": "instruction-error",
+      "instructionErrorKind": "custom",
+      "expectTruncatedLogs": false,
+      "expectAbsentLogs": false,
+      "expectUnresolvedLookups": true,
+      "expectCpiDepthUnavailable": false,
+      "note": "Adapted from 2Ku3fgEn\u2026 with an addressTableLookups entry, a non-empty meta.loadedAddresses and one extra preBalances entry, none of which a version 1 record has. The account list is degraded to the static keys and indices beyond them stay unresolved rather than guessed.",
+      "phase1": {
+        "confidence": "unknown",
+        "program": "W1LDCARDa67SPBG7TFpQivHnEZXRtxCFP13ysEd1bWR",
+        "programSource": "logs",
+        "handler": null,
+        "errorName": null,
+        "errorNumber": 2,
+        "site": null,
+        "account": null
+      }
     }
   ]
 }

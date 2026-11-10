@@ -1,4 +1,4 @@
-import type { InstructionNode } from '../ingest/types.ts';
+import type { FailedTransaction, InstructionNode } from '../ingest/types.ts';
 import { decodeBase58 } from '../signature.ts';
 import type { Frame } from './frames.ts';
 import type { ComputeScope } from './types.ts';
@@ -26,7 +26,39 @@ export interface ComputeFailure {
   consumed: number | null;
   budget: number | null;
   requestedLimit: number | null;
+  /**
+   * Where `requestedLimit` was read from, which decides what advice is true.
+   * A version 1 transaction states its limit in `transactionConfig`; ComputeBudget
+   * instructions inside one are not what configured it.
+   */
+  limitSource: ComputeLimitSource;
   stackFrame: number | null;
+}
+
+export type ComputeLimitSource = 'compute-budget-instruction' | 'transaction-config';
+
+/** What `requestedComputeLimit` needs to know about a transaction's version. */
+export type ComputeLimitContext = Pick<FailedTransaction, 'version' | 'transactionConfig'>;
+
+/**
+ * The limit a transaction stated and where it stated it.
+ *
+ * Version 1 carries it in `transactionConfig.computeUnitLimit`, and the limit is
+ * `null` when that is unstated — no default is supplied, because none is claimed.
+ * Every other version reads it from a `SetComputeUnitLimit` instruction.
+ */
+export function statedComputeLimit(
+  instructions: readonly InstructionNode[],
+  context?: ComputeLimitContext,
+): { limit: number | null; source: ComputeLimitSource } {
+  if (context?.version === 1) {
+    const configured = context.transactionConfig?.computeUnitLimit;
+    return {
+      limit: configured === undefined || configured === null ? null : Number(configured),
+      source: 'transaction-config',
+    };
+  }
+  return { limit: requestedComputeLimit(instructions), source: 'compute-budget-instruction' };
 }
 
 /**
@@ -64,6 +96,7 @@ export function requestedComputeLimit(instructions: readonly InstructionNode[]):
 export function computeFailureIn(
   frame: Frame,
   instructions: readonly InstructionNode[],
+  context?: ComputeLimitContext,
 ): ComputeFailure | null {
   const reason = frame.failureReason;
   if (reason === null) return null;
@@ -71,7 +104,7 @@ export function computeFailureIn(
   const base = {
     consumed: frame.consumed,
     budget: frame.budget,
-    requestedLimit: requestedComputeLimit(instructions),
+    ...limitFields(instructions, context),
   };
 
   const violation = STACK_VIOLATION.exec(reason) ?? findStackViolation(frame);
@@ -102,6 +135,14 @@ function findStackViolation(frame: Frame): RegExpExecArray | null {
     if (match) return match;
   }
   return null;
+}
+
+function limitFields(
+  instructions: readonly InstructionNode[],
+  context: ComputeLimitContext | undefined,
+): { requestedLimit: number | null; limitSource: ComputeLimitSource } {
+  const { limit, source } = statedComputeLimit(instructions, context);
+  return { requestedLimit: limit, limitSource: source };
 }
 
 function units(value: number | null): string {
@@ -145,6 +186,16 @@ export function explainCompute(failure: ComputeFailure, programId: string | null
 }
 
 function requestedAdvice(failure: ComputeFailure): string {
+  if (failure.limitSource === 'transaction-config') {
+    return failure.requestedLimit === null
+      ? 'This is a version 1 transaction and its `transactionConfig` states no compute unit ' +
+          'limit. Setting `computeUnitLimit` explicitly there is the fix; the record does not ' +
+          'say what limit applied instead.'
+      : `The transaction's version 1 \`transactionConfig\` set computeUnitLimit to ${failure.requestedLimit.toLocaleString('en-US')} ` +
+          'compute units; raise that value, or reduce the work — logging in hot paths is often ' +
+          'the cheapest thing to cut.';
+  }
+
   return failure.requestedLimit === null
     ? 'The transaction set no ComputeBudget limit, so it ran on the default allowance; adding a ' +
         'SetComputeUnitLimit instruction raises it.'

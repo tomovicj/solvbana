@@ -33,7 +33,17 @@ export type NotFoundReason =
 export type FetchOutcome =
   | { kind: 'found'; raw: RawTransaction; endpoint: Endpoint }
   | { kind: 'not-found'; reason: NotFoundReason; searchedArchive: boolean }
-  | { kind: 'rpc-error'; endpoint: Endpoint; message: string };
+  | { kind: 'rpc-error'; endpoint: Endpoint; message: string }
+  /**
+   * The record exists and landed, but its version is above the ceiling this build
+   * requests, so the endpoint refused to serve it (-32015).
+   *
+   * Kept apart from `rpc-error` because the two call for opposite responses:
+   * retrying a failed fetch can succeed, while this will not until the build
+   * learns the version. `version` is `null` when the server's text did not carry
+   * a number that could be parsed.
+   */
+  | { kind: 'unsupported-version'; version: number | null; endpoint: Endpoint };
 
 /**
  * The port `diagnose()` fetches through.

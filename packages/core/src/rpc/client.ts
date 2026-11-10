@@ -29,8 +29,11 @@ type Rpc = ReturnType<typeof createSolanaRpc>;
 /**
  * `getTransaction` config used for every request.
  *
- * `maxSupportedTransactionVersion: 0` is mandatory, not a preference — omitting
- * it makes the server error on every v0 transaction rather than returning one.
+ * `maxSupportedTransactionVersion` is mandatory, not a preference, and it
+ * errors in both directions: omitting it makes the server error on every v0
+ * transaction, and a ceiling below a transaction's version makes it error on that
+ * one. 1 is the highest version this build reads. Legacy and v0 responses are
+ * byte-identical under it.
  *
  * `encoding: 'json'` rather than `'jsonParsed'` because the instruction tree is
  * built from raw `programIdIndex` / `accounts` indices; `jsonParsed` substitutes
@@ -38,8 +41,25 @@ type Rpc = ReturnType<typeof createSolanaRpc>;
  */
 const GET_TRANSACTION_CONFIG = {
   encoding: 'json',
-  maxSupportedTransactionVersion: 0,
+  maxSupportedTransactionVersion: 1,
 } as const;
+
+/** The JSON-RPC code for "Transaction version (N) is not supported by the requesting client". */
+const UNSUPPORTED_VERSION_CODE = -32015;
+
+/**
+ * The version a -32015 error names, `undefined` when the error is not one, and
+ * `null` when it is one whose text does not carry a parseable version.
+ */
+function unsupportedVersionOf(error: unknown): number | null | undefined {
+  const context = (error as { context?: { __code?: unknown; __serverMessage?: unknown } } | null)
+    ?.context;
+  if (context?.__code !== UNSUPPORTED_VERSION_CODE) return undefined;
+
+  const message = typeof context.__serverMessage === 'string' ? context.__serverMessage : '';
+  const match = /Transaction version \((\d+)\)/.exec(message);
+  return match?.[1] === undefined ? null : Number(match[1]);
+}
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -91,11 +111,15 @@ export function createTransactionSource(config: TransactionSourceConfig): Transa
     rpc: Rpc,
     endpoint: Endpoint,
     signature: Signature,
-  ): Promise<{ raw: RawTransaction } | { error: string } | null> {
+  ): Promise<
+    { raw: RawTransaction } | { error: string } | { unsupportedVersion: number | null } | null
+  > {
     try {
       const raw = await getTransaction(rpc, signature);
       return raw === null ? null : { raw };
     } catch (error) {
+      const version = unsupportedVersionOf(error);
+      if (version !== undefined) return { unsupportedVersion: version };
       return { error: `${endpoint} RPC failed: ${messageOf(error)}` };
     }
   }
@@ -134,6 +158,13 @@ export function createTransactionSource(config: TransactionSourceConfig): Transa
       if (fromPrimary !== null && 'raw' in fromPrimary) {
         return { kind: 'found', raw: fromPrimary.raw, endpoint: 'primary' };
       }
+      if (fromPrimary !== null && 'unsupportedVersion' in fromPrimary) {
+        return {
+          kind: 'unsupported-version',
+          version: fromPrimary.unsupportedVersion,
+          endpoint: 'primary',
+        };
+      }
       if (fromPrimary !== null) {
         return { kind: 'rpc-error', endpoint: 'primary', message: fromPrimary.error };
       }
@@ -142,6 +173,13 @@ export function createTransactionSource(config: TransactionSourceConfig): Transa
         const fromArchive = await attempt(archive, 'archive', signature);
         if (fromArchive !== null && 'raw' in fromArchive) {
           return { kind: 'found', raw: fromArchive.raw, endpoint: 'archive' };
+        }
+        if (fromArchive !== null && 'unsupportedVersion' in fromArchive) {
+          return {
+            kind: 'unsupported-version',
+            version: fromArchive.unsupportedVersion,
+            endpoint: 'archive',
+          };
         }
         if (fromArchive !== null) {
           return { kind: 'rpc-error', endpoint: 'archive', message: fromArchive.error };

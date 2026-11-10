@@ -59,6 +59,7 @@ export function failedTransaction(
     slot: 1n,
     blockTime: null,
     version: 0,
+    transactionConfig: null,
     fee: 5000n,
     computeUnitsConsumed: null,
     accounts: {

@@ -149,8 +149,13 @@ export interface ComputeFrame {
 export interface ComputeBreakdown {
   /** What the transaction consumed in total, from `meta.computeUnitsConsumed`. */
   total: bigint | null;
-  /** The ceiling a `SetComputeUnitLimit` instruction requested, when there was one. */
+  /**
+   * The ceiling the transaction stated, when it did: a `SetComputeUnitLimit` instruction,
+   * or for version 1 `transactionConfig.computeUnitLimit`.
+   */
   requestedLimit: number | null;
+  /** Where `requestedLimit` was read from, mirroring `Finding.failure.limitSource`. */
+  limitSource: 'compute-budget-instruction' | 'transaction-config';
   frames: ComputeFrame[];
 }
 

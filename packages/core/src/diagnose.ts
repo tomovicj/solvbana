@@ -251,6 +251,29 @@ function summarize(transaction: FailedTransaction, finding: Finding): string {
   return `${position} failed in ${finding.program}${handler} with ${description}.`;
 }
 
+/** The transaction versions this build reads: legacy, 0 and 1. */
+const READ_VERSIONS = ['legacy', 0, 1] as const;
+
+/**
+ * A named refusal for a transaction version this build does not read.
+ *
+ * The record exists and landed — that is how the version is known — so this says
+ * so, rather than reporting a failed fetch that a retry might fix.
+ */
+function unsupportedVersionDiagnosis(
+  signature: string,
+  version: number | string | null,
+): Diagnosis {
+  const named = version === null ? 'an unstated version' : `version ${String(version)}`;
+  return unknownDiagnosis(
+    signature,
+    `This transaction uses ${named}, which this build does not read.`,
+    `The transaction record exists and landed, but it uses ${named}, which is not one of the ` +
+      'versions read here (legacy, 0 and 1). It was not decoded, because reading a newer format ' +
+      'as an older one would name accounts from a layout it may not share.',
+  );
+}
+
 /**
  * Entry point for the tier cascade.
  *
@@ -275,11 +298,25 @@ export async function diagnose(signature: string, deps: DiagnoseDeps): Promise<D
     );
   }
 
+  if (outcome.kind === 'unsupported-version') {
+    return unsupportedVersionDiagnosis(signature, outcome.version);
+  }
+
   if (outcome.kind === 'not-found') {
     return unknownDiagnosis(
       signature,
       'No transaction record was found for this signature.',
       explainNotFound(outcome.reason),
+    );
+  }
+
+  // An endpoint that ignores the version ceiling can still hand back a newer
+  // format than was asked for. Normalizing it as if it were v0 would index its
+  // accounts by a layout it may not have, so it is refused before that.
+  if (!(READ_VERSIONS as readonly unknown[]).includes(outcome.raw.version)) {
+    return unsupportedVersionDiagnosis(
+      signature,
+      (outcome.raw.version as unknown) === undefined ? null : String(outcome.raw.version),
     );
   }
 

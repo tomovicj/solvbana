@@ -8,11 +8,18 @@ import type { LamportBalance, RawTransaction, TokenBalance } from './types.ts';
  * transaction loaded, including those that came from a lookup table, so the
  * array is routinely longer than the statically declared keys. Dropping the
  * overflow would silently lose the accounts a v0 transaction cares most about.
+ *
+ * The one exception is a version 1 record whose balance count disagrees with its
+ * static key count. Version 1 has no lookups, so the two must line up one to one;
+ * when they do not, no index can be trusted to belong to the key at that position,
+ * and a misaligned zero would read as "the account did not exist". Nothing is
+ * returned rather than a table that may be shifted.
  */
 export function lamportBalancesFrom(raw: RawTransaction): LamportBalance[] {
   const pre = raw.meta?.preBalances ?? null;
   const post = raw.meta?.postBalances ?? null;
   if (pre === null || post === null) return [];
+  if (raw.version === 1 && pre.length !== raw.transaction.message.accountKeys.length) return [];
 
   const rows: LamportBalance[] = [];
   for (let index = 0; index < Math.max(pre.length, post.length); index += 1) {

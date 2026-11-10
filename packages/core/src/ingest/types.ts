@@ -1,14 +1,50 @@
 import type { GetTransactionApiResponseJson } from '@solana/kit';
 
 /**
+ * The `transactionConfig` a version 1 message carries in place of ComputeBudget
+ * instructions.
+ *
+ * Not declared by `@solana/kit`'s response types, though the client upcasts its
+ * numbers to `bigint` at runtime like every other integer in the response.
+ * `priorityFee` and `heapSize` are `null` when the transaction did not set them;
+ * the other two have been present in every version 1 record seen.
+ */
+export interface RawTransactionConfig {
+  priorityFee?: bigint | null;
+  computeUnitLimit?: bigint | null;
+  loadedAccountsDataSizeLimit?: bigint | null;
+  heapSize?: bigint | null;
+}
+
+/**
  * The raw `getTransaction` response, exactly as the RPC returned it.
  *
- * Pinned to `encoding: 'json'` and `maxSupportedTransactionVersion: 0` because
+ * Pinned to `encoding: 'json'` and `maxSupportedTransactionVersion: 1` because
  * the instruction tree is built from raw `programIdIndex` / `accounts` indices,
- * which `jsonParsed` replaces with addresses, and because omitting the version
- * ceiling errors on every v0 transaction.
+ * which `jsonParsed` replaces with addresses, and because the version ceiling is
+ * not optional: omitting it errors on every v0 transaction, and a ceiling of 0
+ * errors on every version 1 transaction. Legacy and v0 responses are unchanged
+ * by raising it.
+ *
+ * `transactionConfig` is intersected on locally because kit does not declare it.
  */
-export type RawTransaction = GetTransactionApiResponseJson<0>;
+export type RawTransaction = GetTransactionApiResponseJson<1> & {
+  transaction: { message: { transactionConfig?: RawTransactionConfig | null } };
+};
+
+/**
+ * What a version 1 transaction asked of the runtime, in place of ComputeBudget
+ * instructions.
+ *
+ * Every field is `null` when the record did not state it. A `null` limit means
+ * "not stated", and nothing here supplies a default for it.
+ */
+export interface TransactionConfig {
+  priorityFee: bigint | null;
+  computeUnitLimit: bigint | null;
+  loadedAccountsDataSizeLimit: bigint | null;
+  heapSize: bigint | null;
+}
 
 /**
  * Where an account address came from in the flattened key list.
@@ -150,14 +186,23 @@ export interface TokenBalance {
 }
 
 /**
- * The Phase 0 output: one normalized shape for legacy and v0 transactions alike,
- * which every later tier reads from.
+ * The Phase 0 output: one normalized shape for legacy, v0 and version 1
+ * transactions alike, which every later tier reads from.
  */
 export interface FailedTransaction {
   signature: string;
   slot: bigint;
   blockTime: bigint | null;
   version: 'legacy' | number;
+  /**
+   * The version 1 `transactionConfig`, or `null` for any other version or when
+   * the record carried none.
+   *
+   * For version 1 this is where the compute limit lives: the runtime meters
+   * against `computeUnitLimit`, and ComputeBudget instructions inside such a
+   * transaction are not what configured it.
+   */
+  transactionConfig: TransactionConfig | null;
   fee: bigint;
   computeUnitsConsumed: bigint | null;
   accounts: AccountKeys;

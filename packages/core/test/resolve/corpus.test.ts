@@ -140,12 +140,16 @@ describe('the corpus with source resolution', () => {
       buckets.set(confidence, (buckets.get(confidence) ?? 0) + 1);
     }
 
-    // Phase 1 alone reached 7 / 30 / 8. Resolution moves the two Whirlpool
-    // Custom(2012) fixtures; the remaining six publish no IDL, and stay undecoded
-    // by design rather than by omission.
-    expect(buckets.get('exact') ?? 0).toBeGreaterThanOrEqual(7);
-    expect(buckets.get('variant-only') ?? 0).toBeGreaterThanOrEqual(32);
-    expect(buckets.get('unknown') ?? 0).toBeLessThanOrEqual(6);
+    // Pinned exactly, over the 51-entry corpus: 7 exact / 34 variant-only / 10
+    // unknown. Phase 1 alone reached 7 / 30 / 8 over the first 45. Resolution moves
+    // the two Whirlpool Custom(2012) fixtures; the rest of the undecoded count is
+    // programs that publish no IDL, stayed undecoded by design rather than by
+    // omission, and includes the four version 1 fixtures (bare Custom(n) from
+    // programs publishing none). A floor would let a regression of one fixture pass
+    // while another improved, so this is an equality: a change here is a decision.
+    expect(buckets.get('exact') ?? 0).toBe(7);
+    expect(buckets.get('variant-only') ?? 0).toBe(34);
+    expect(buckets.get('unknown') ?? 0).toBe(10);
     // Resolution names errors; it never locates them. Only uploaded source
     // reaches `narrowed`, and none of these fixtures has any.
     expect(buckets.get('narrowed') ?? 0).toBe(0);

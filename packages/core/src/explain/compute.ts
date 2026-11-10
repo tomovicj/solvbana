@@ -1,5 +1,5 @@
 import { buildFrames, failingFrame } from '../analyze/frames.ts';
-import { requestedComputeLimit } from '../analyze/compute.ts';
+import { statedComputeLimit } from '../analyze/compute.ts';
 import type { FailedTransaction } from '../ingest/types.ts';
 import type { ComputeBreakdown } from './types.ts';
 
@@ -17,10 +17,12 @@ export function computeBreakdown(transaction: FailedTransaction): ComputeBreakdo
   if (frames.length === 0) return null;
 
   const failing = failingFrame(frames);
+  const stated = statedComputeLimit(transaction.instructions, transaction);
 
   return {
     total: transaction.computeUnitsConsumed,
-    requestedLimit: requestedComputeLimit(transaction.instructions),
+    requestedLimit: stated.limit,
+    limitSource: stated.source,
     frames: frames.map((frame) => ({
       programId: frame.programId,
       depth: frame.depth,

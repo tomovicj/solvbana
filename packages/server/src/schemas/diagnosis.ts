@@ -146,6 +146,20 @@ const FailedTransactionSchema = Type.Object({
   slot: Type.String(),
   blockTime: Type.Union([Type.String(), Type.Null()]),
   version: Type.Union([Type.Literal('legacy'), Type.Integer()]),
+  /**
+   * The version 1 `transactionConfig`, bigints as strings. `null` for any other
+   * version; each field is `null` when the record did not state it, which is not
+   * zero. This is where a version 1 compute limit lives.
+   */
+  transactionConfig: Type.Union([
+    Type.Object({
+      priorityFee: Type.Union([Type.String(), Type.Null()]),
+      computeUnitLimit: Type.Union([Type.String(), Type.Null()]),
+      loadedAccountsDataSizeLimit: Type.Union([Type.String(), Type.Null()]),
+      heapSize: Type.Union([Type.String(), Type.Null()]),
+    }),
+    Type.Null(),
+  ]),
   fee: Type.String(),
   computeUnitsConsumed: Type.Union([Type.String(), Type.Null()]),
   accounts: AccountKeysSchema,
@@ -217,6 +231,10 @@ const FailureKindSchema = Type.Union([
     consumed: NullableInteger,
     budget: NullableInteger,
     requestedLimit: NullableInteger,
+    limitSource: Type.Union([
+      Type.Literal('compute-budget-instruction'),
+      Type.Literal('transaction-config'),
+    ]),
     stackFrame: NullableInteger,
   }),
   Type.Object({ kind: Type.Literal('native'), programId: Type.String() }),
@@ -366,6 +384,10 @@ const DecodedArgSchema = Type.Object({
 const ComputeBreakdownSchema = Type.Object({
   total: NullableBigIntString,
   requestedLimit: Type.Union([Type.Integer(), Type.Null()]),
+  limitSource: Type.Union([
+    Type.Literal('compute-budget-instruction'),
+    Type.Literal('transaction-config'),
+  ]),
   frames: Type.Array(
     Type.Object({
       programId: Type.String(),
@@ -607,12 +629,27 @@ export const VERIFICATION_UNVERIFIED_SCHEMA_COVERS_CORE: keyof Extract<
   ? true
   : never = true;
 
+function nullableBigIntString(value: bigint | null): string | null {
+  return value === null ? null : String(value);
+}
+
 function toTransactionWire(transaction: FailedTransaction): FailedTransactionWire {
   return {
     signature: transaction.signature,
     slot: String(transaction.slot),
     blockTime: transaction.blockTime === null ? null : String(transaction.blockTime),
     version: transaction.version,
+    transactionConfig:
+      transaction.transactionConfig === null
+        ? null
+        : {
+            priorityFee: nullableBigIntString(transaction.transactionConfig.priorityFee),
+            computeUnitLimit: nullableBigIntString(transaction.transactionConfig.computeUnitLimit),
+            loadedAccountsDataSizeLimit: nullableBigIntString(
+              transaction.transactionConfig.loadedAccountsDataSizeLimit,
+            ),
+            heapSize: nullableBigIntString(transaction.transactionConfig.heapSize),
+          },
     fee: String(transaction.fee),
     computeUnitsConsumed:
       transaction.computeUnitsConsumed === null ? null : String(transaction.computeUnitsConsumed),
@@ -690,6 +727,7 @@ function toExplanationWire(explanation: Explanation): ExplanationWire {
         : {
             total: optional(explanation.compute.total),
             requestedLimit: explanation.compute.requestedLimit,
+            limitSource: explanation.compute.limitSource,
             frames: explanation.compute.frames,
           },
     deltas: {

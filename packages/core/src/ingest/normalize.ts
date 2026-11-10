@@ -1,9 +1,22 @@
-import { accountKeysFrom } from './accounts.ts';
+import { accountKeysFrom, versionOneViolations } from './accounts.ts';
 import { lamportBalancesFrom, tokenBalancesFrom } from './balances.ts';
 import { parseTransactionError } from './error.ts';
 import { instructionTreeFrom } from './instructions.ts';
 import { parseLogs } from './logs.ts';
-import type { FailedTransaction, RawTransaction } from './types.ts';
+import type { FailedTransaction, RawTransaction, TransactionConfig } from './types.ts';
+
+/** `null` when the record carries no config; each unstated field stays `null` too. */
+function transactionConfigFrom(raw: RawTransaction): TransactionConfig | null {
+  const config = raw.transaction.message.transactionConfig;
+  if (config === undefined || config === null) return null;
+
+  return {
+    priorityFee: config.priorityFee ?? null,
+    computeUnitLimit: config.computeUnitLimit ?? null,
+    loadedAccountsDataSizeLimit: config.loadedAccountsDataSizeLimit ?? null,
+    heapSize: config.heapSize ?? null,
+  };
+}
 
 /**
  * Turn a raw `getTransaction` response into the normalized shape every later
@@ -21,7 +34,17 @@ export function normalizeTransaction(raw: RawTransaction, signature: string): Fa
   const degradations: string[] = [];
 
   const accounts = accountKeysFrom(raw);
-  if (accounts.unresolvedLookups) {
+  const violations = versionOneViolations(raw);
+  if (violations.length > 0) {
+    degradations.push(
+      'This version 1 transaction does not have the shape version 1 accounts were verified ' +
+        `against: ${violations.join('; ')}. Only the ${String(accounts.keys.length)} statically ` +
+        'declared keys are used. Loaded addresses are not relied on, so account indices at or ' +
+        `beyond ${String(accounts.keys.length)} are unresolved rather than guessed, and lamport ` +
+        'balances are dropped when their count does not match the declared keys, because they ' +
+        'could not then be tied to an account by position.',
+    );
+  } else if (accounts.unresolvedLookups) {
     degradations.push(
       'This transaction loads accounts from address lookup tables, but the RPC did not return ' +
         '`meta.loadedAddresses`. The tables are mutable, so reading one now could resolve ' +
@@ -61,6 +84,7 @@ export function normalizeTransaction(raw: RawTransaction, signature: string): Fa
     slot: raw.slot,
     blockTime: raw.blockTime,
     version: raw.version,
+    transactionConfig: transactionConfigFrom(raw),
     fee: meta?.fee ?? 0n,
     computeUnitsConsumed: meta?.computeUnitsConsumed ?? null,
     accounts,
