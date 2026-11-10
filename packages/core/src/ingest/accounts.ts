@@ -7,8 +7,11 @@ export interface FlattenInput {
     numReadonlySignedAccounts: number;
     numReadonlyUnsignedAccounts: number;
   };
-  /** Present when the transaction loads addresses from lookup tables. */
-  addressTableLookups: readonly unknown[] | undefined;
+  /**
+   * Present when the transaction loads addresses from lookup tables. Version 1
+   * messages have no such key at all, so absence is ordinary rather than a gap.
+   */
+  addressTableLookups?: readonly unknown[] | undefined;
   loadedAddresses: { writable: readonly string[]; readonly: readonly string[] } | undefined;
 }
 
@@ -83,15 +86,73 @@ export function flattenAccountKeys(input: FlattenInput): AccountKeys {
   return { keys, unresolvedLookups: usesLookups && loadedAddresses === undefined };
 }
 
+/**
+ * What a version 1 record must look like for its account list to be trusted.
+ *
+ * Version 1 messages carry at most 64 static keys and no lookup tables, so the
+ * flattened list is the static list and `meta.preBalances` lines up with it one
+ * to one. Those three facts held across every version 1 transaction checked, and
+ * they are what make flattening by header alone correct. A record that breaks
+ * one is not the shape this was verified against, so each violation is returned
+ * as a sentence and the caller degrades instead of indexing into a list that may
+ * be wrong. Empty for any other version.
+ */
+export function versionOneViolations(raw: RawTransaction): string[] {
+  if (raw.version !== 1) return [];
+
+  const violations: string[] = [];
+  const message = raw.transaction.message as { addressTableLookups?: readonly unknown[] };
+  const lookups = message.addressTableLookups?.length ?? 0;
+  if (lookups > 0) {
+    violations.push(
+      `its message declares ${String(lookups)} address table lookup(s), which version 1 does not have`,
+    );
+  }
+
+  const loaded = raw.meta?.loadedAddresses;
+  const loadedCount = (loaded?.writable.length ?? 0) + (loaded?.readonly.length ?? 0);
+  if (loadedCount > 0) {
+    violations.push(
+      `\`meta.loadedAddresses\` lists ${String(loadedCount)} address(es), but version 1 loads none`,
+    );
+  }
+
+  const balances = raw.meta?.preBalances.length;
+  if (balances !== undefined && balances !== raw.transaction.message.accountKeys.length) {
+    violations.push(
+      `\`meta.preBalances\` has ${String(balances)} entries against ` +
+        `${String(raw.transaction.message.accountKeys.length)} account keys`,
+    );
+  }
+
+  return violations;
+}
+
 /** Pull the flatten inputs off a raw response and resolve them. */
 export function accountKeysFrom(raw: RawTransaction): AccountKeys {
   const message = raw.transaction.message;
   const meta = raw.meta;
 
+  // A version 1 record that breaks the shape it was verified against is flattened
+  // from its static keys alone and flagged unresolved, the same degrade a missing
+  // `loadedAddresses` gets: indices beyond the static list are then unresolved
+  // rather than named from a list that may be wrong.
+  if (versionOneViolations(raw).length > 0) {
+    const flattened = flattenAccountKeys({
+      staticKeys: message.accountKeys,
+      header: message.header,
+      addressTableLookups: undefined,
+      loadedAddresses: undefined,
+    });
+    return { ...flattened, unresolvedLookups: true };
+  }
+
   return flattenAccountKeys({
     staticKeys: message.accountKeys,
     header: message.header,
-    addressTableLookups: message.addressTableLookups,
+    // Optional by type, not just by habit: a version 1 message omits the key.
+    addressTableLookups: (message as { addressTableLookups?: readonly unknown[] })
+      .addressTableLookups,
     loadedAddresses: meta?.loadedAddresses,
   });
 }

@@ -209,7 +209,7 @@ function analyzeAttributed(
     const anchor = anchorErrorIn(frame);
     if (anchor !== null) return fromAnchor(base, frame, anchor, code);
 
-    const compute = computeFailureIn(frame, instructions);
+    const compute = computeFailureIn(frame, instructions, transaction);
     if (compute !== null) {
       return {
         finding: {

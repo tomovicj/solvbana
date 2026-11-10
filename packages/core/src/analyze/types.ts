@@ -94,8 +94,13 @@ export type FailureKind =
       /** Compute units the failing frame used, and the ceiling it was measured against. */
       consumed: number | null;
       budget: number | null;
-      /** From a `SetComputeUnitLimit` instruction, when the transaction requested one. */
+      /**
+       * The limit the transaction stated, when it stated one: from a
+       * `SetComputeUnitLimit` instruction, or for version 1 from `transactionConfig`.
+       */
       requestedLimit: number | null;
+      /** Where `requestedLimit` comes from, which decides what advice is true. */
+      limitSource: 'compute-budget-instruction' | 'transaction-config';
       /** The stack frame index from an access violation, when that is the failure. */
       stackFrame: number | null;
     }

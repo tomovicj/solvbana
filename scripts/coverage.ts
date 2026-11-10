@@ -92,7 +92,7 @@ async function fetchBlock(slot: number): Promise<Block | null> {
           encoding: 'json',
           transactionDetails: 'full',
           rewards: false,
-          maxSupportedTransactionVersion: 0,
+          maxSupportedTransactionVersion: 1,
           commitment: 'finalized',
         },
       ]);

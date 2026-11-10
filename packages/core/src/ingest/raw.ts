@@ -61,6 +61,31 @@ export function reviveRawTransaction(value: unknown): RawTransaction {
   raw['slot'] = toBigInt(raw['slot']) ?? 0n;
   raw['blockTime'] = toBigInt(raw['blockTime']);
 
+  // Version 1 only. kit does not declare `transactionConfig` but does upcast its
+  // numbers, so a fixture has to be revived the same way; `null` stays `null`
+  // because it means "not stated", which is not zero.
+  const transaction = raw['transaction'];
+  if (typeof transaction === 'object' && transaction !== null) {
+    const message = (transaction as Record<string, unknown>)['message'];
+    if (typeof message === 'object' && message !== null) {
+      const config = (message as Record<string, unknown>)['transactionConfig'];
+      if (typeof config === 'object' && config !== null) {
+        raw['transaction'] = {
+          ...(transaction as Record<string, unknown>),
+          message: {
+            ...(message as Record<string, unknown>),
+            transactionConfig: Object.fromEntries(
+              Object.entries(config as Record<string, unknown>).map(([key, entry]) => [
+                key,
+                toBigInt(entry),
+              ]),
+            ),
+          },
+        };
+      }
+    }
+  }
+
   const meta = raw['meta'];
   if (typeof meta === 'object' && meta !== null) {
     const revivedMeta = { ...(meta as Record<string, unknown>) };

@@ -195,6 +195,7 @@ export {
   accountKeysFrom,
   addressAt,
   flattenAccountKeys,
+  versionOneViolations,
   type FlattenInput,
 } from './ingest/accounts.ts';
 
@@ -232,7 +233,9 @@ export type {
   LogLine,
   LogStream,
   RawTransaction,
+  RawTransactionConfig,
   TokenBalance,
+  TransactionConfig,
   TransactionError,
 } from './ingest/types.ts';
 

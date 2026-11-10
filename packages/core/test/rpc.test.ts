@@ -136,7 +136,9 @@ describe('createTransactionSource', () => {
   });
 
   it('requests every transaction with a version ceiling', async () => {
-    // Omitting maxSupportedTransactionVersion errors on every v0 transaction.
+    // Omitting maxSupportedTransactionVersion errors on every v0 transaction, and
+    // a ceiling of 0 errors on every version 1 transaction. 1 is the highest
+    // version read here; legacy and v0 responses are unchanged under it.
     const bodies: { method: string; params: unknown[] }[] = [];
     vi.stubGlobal('fetch', (_input: string, init?: RequestInit) => {
       bodies.push(requestBody(init));
@@ -150,7 +152,61 @@ describe('createTransactionSource', () => {
     await createTransactionSource({ rpcUrl: PRIMARY }).fetchTransaction(SIGNATURE);
 
     const call = bodies.find((body) => body.method === 'getTransaction');
-    expect(call?.params[1]).toMatchObject({ maxSupportedTransactionVersion: 0, encoding: 'json' });
+    expect(call?.params[1]).toMatchObject({ maxSupportedTransactionVersion: 1, encoding: 'json' });
+  });
+});
+
+describe('unsupported transaction versions', () => {
+  function stubVersionError(message: string): void {
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, error: { code: -32015, message } }), {
+          headers: { 'content-type': 'application/json' },
+        }),
+      ),
+    );
+  }
+
+  it('reports a -32015 as an unsupported version, with the version it names', async () => {
+    stubVersionError(
+      'Transaction version (2) is not supported by the requesting client. Please try the ' +
+        'request again with the following configuration parameter: "maxSupportedTransactionVersion": 2',
+    );
+
+    expect(await createTransactionSource({ rpcUrl: PRIMARY }).fetchTransaction(SIGNATURE)).toEqual({
+      kind: 'unsupported-version',
+      version: 2,
+      endpoint: 'primary',
+    });
+  });
+
+  it('keeps the refusal when the version cannot be parsed from the server text', async () => {
+    stubVersionError('Something else entirely about versions.');
+
+    expect(await createTransactionSource({ rpcUrl: PRIMARY }).fetchTransaction(SIGNATURE)).toEqual({
+      kind: 'unsupported-version',
+      version: null,
+      endpoint: 'primary',
+    });
+  });
+
+  it('does not mistake another RPC error for an unsupported version', async () => {
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            error: { code: -32005, message: 'Node is behind' },
+          }),
+          { headers: { 'content-type': 'application/json' } },
+        ),
+      ),
+    );
+
+    expect(
+      await createTransactionSource({ rpcUrl: PRIMARY }).fetchTransaction(SIGNATURE),
+    ).toMatchObject({ kind: 'rpc-error', endpoint: 'primary' });
   });
 });
 

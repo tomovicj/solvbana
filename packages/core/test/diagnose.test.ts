@@ -34,6 +34,159 @@ function corpusEntry(prefix: string): CorpusEntry {
 
 const SIGNATURE = 'sig';
 
+describe('diagnose, transaction versions', () => {
+  it('names an unsupported version rather than reporting a failed fetch', async () => {
+    const result = await diagnose(SIGNATURE, {
+      source: {
+        fetchTransaction: () =>
+          Promise.resolve({ kind: 'unsupported-version', version: 2, endpoint: 'primary' }),
+      },
+    });
+
+    expect(result.confidence).toBe('unknown');
+    expect(result.summary).toMatch(/version 2/);
+    expect(result.summary).not.toMatch(/could not be fetched/);
+    expect(result.reasons.join(' ')).toMatch(/exists and landed/);
+    expect(result.reasons.join(' ')).toMatch(/legacy, 0 and 1/);
+    expect(result.transaction).toBeUndefined();
+  });
+
+  it('says so when the server did not name the version', async () => {
+    const result = await diagnose(SIGNATURE, {
+      source: {
+        fetchTransaction: () =>
+          Promise.resolve({ kind: 'unsupported-version', version: null, endpoint: 'primary' }),
+      },
+    });
+
+    expect(result.confidence).toBe('unknown');
+    expect(result.summary).toMatch(/does not read/);
+  });
+
+  it('refuses a record of a newer version without normalizing it', async () => {
+    // An endpoint that ignores the ceiling can hand back a format newer than was
+    // asked for, which must not be read as if it were v0.
+    const result = await diagnose(SIGNATURE, {
+      source: fixtureSource('synthetic', 'unsupported-version-2.json'),
+    });
+
+    expect(result.confidence).toBe('unknown');
+    expect(result.summary).toMatch(/version 2/);
+    expect(result.transaction).toBeUndefined();
+    expect(result.finding).toBeUndefined();
+  });
+
+  it('reads the compute limit of a version 1 transaction from its config, not its instructions', async () => {
+    const result = await diagnose(SIGNATURE, {
+      source: fixtureSource('synthetic', 'v1-compute-exhausted.json'),
+    });
+
+    expect(result.transaction?.version).toBe(1);
+    expect(result.transaction?.transactionConfig?.computeUnitLimit).toBe(38n);
+    // The SetComputeUnitLimit instruction asks for 300000; the runtime metered
+    // against the config's 38, and that is what is reported.
+    expect(result.finding?.failure).toMatchObject({
+      kind: 'compute',
+      requestedLimit: 38,
+      limitSource: 'transaction-config',
+    });
+    expect(result.finding?.explanation).toMatch(/transactionConfig/);
+    expect(result.finding?.explanation).not.toMatch(/300,000/);
+    expect(result.explanation?.compute?.requestedLimit).toBe(38);
+    expect(result.explanation?.compute?.limitSource).toBe('transaction-config');
+    expect(result.explanation?.guidance.fix).toMatch(/computeUnitLimit/);
+  });
+
+  it('claims nothing about a default when a version 1 config states no compute limit', async () => {
+    const wire = readJson<{ transaction: { message: { transactionConfig: object } } }>(
+      'synthetic',
+      'v1-compute-exhausted.json',
+    );
+    wire.transaction.message.transactionConfig = {
+      ...wire.transaction.message.transactionConfig,
+      computeUnitLimit: null,
+    };
+    const result = await diagnose(SIGNATURE, {
+      source: {
+        fetchTransaction: () =>
+          Promise.resolve({
+            kind: 'found',
+            raw: reviveRawTransaction(wire),
+            endpoint: 'primary',
+          }),
+      },
+    });
+
+    expect(result.explanation?.compute?.requestedLimit).toBeNull();
+    expect(result.explanation?.compute?.limitSource).toBe('transaction-config');
+    const guidance = result.explanation?.guidance;
+    expect(guidance?.fix).toMatch(/explicitly/);
+    expect(guidance?.fix).not.toMatch(/raise/i);
+    expect(guidance?.causes.join(' ')).not.toMatch(/too low/);
+    expect(result.finding?.explanation).not.toMatch(/raises it/);
+    expect(result.finding?.explanation).toMatch(/explicitly/);
+  });
+
+  it('degrades a version 1 record that breaks the version 1 invariants', async () => {
+    const result = await diagnose(SIGNATURE, {
+      source: fixtureSource('synthetic', 'v1-with-lookups.json'),
+    });
+
+    expect(result.transaction?.accounts.unresolvedLookups).toBe(true);
+    // Static keys only: the loaded address is not appended, so index 4 resolves to nothing.
+    expect(result.transaction?.accounts.keys).toHaveLength(4);
+    const reasons = result.reasons.join(' ');
+    expect(reasons).toMatch(/address table lookup/);
+    expect(reasons).toMatch(/loadedAddresses/);
+    expect(reasons).toMatch(/preBalances/);
+    expect(reasons).toMatch(/statically declared keys are used/);
+    expect(reasons).not.toMatch(/not trusted/);
+  });
+
+  it('does not claim an account did not exist from balances it could not align', async () => {
+    // preBalances has 5 entries against 4 keys, so no index can be trusted to
+    // belong to the key at that position. A zero landing on the failing
+    // instruction's account would otherwise read as "held no lamports".
+    const wire = readJson<{ meta: { preBalances: number[] } }>('synthetic', 'v1-with-lookups.json');
+    wire.meta.preBalances[1] = 0;
+    const result = await diagnose(SIGNATURE, {
+      source: {
+        fetchTransaction: () =>
+          Promise.resolve({
+            kind: 'found',
+            raw: reviveRawTransaction(wire),
+            endpoint: 'primary',
+          }),
+      },
+    });
+
+    expect(result.transaction?.lamports).toEqual([]);
+    for (const row of result.explanation?.accounts ?? []) {
+      expect(row.lamports).toBeNull();
+      expect(row.existedBefore).toBeNull();
+    }
+    expect(JSON.stringify(result.explanation?.guidance)).not.toMatch(/did not exist/);
+  });
+
+  it('says an unstated version when the record carries none', async () => {
+    const wire = readJson<Record<string, unknown>>('synthetic', 'unsupported-version-2.json');
+    delete wire['version'];
+    const result = await diagnose(SIGNATURE, {
+      source: {
+        fetchTransaction: () =>
+          Promise.resolve({
+            kind: 'found',
+            raw: reviveRawTransaction(wire),
+            endpoint: 'primary',
+          }),
+      },
+    });
+
+    expect(result.summary).toMatch(/an unstated version/);
+    expect(result.summary).not.toMatch(/undefined/);
+  });
+});
+
 describe('diagnose', () => {
   it('names the failing instruction and its error', async () => {
     const result = await diagnose(SIGNATURE, {

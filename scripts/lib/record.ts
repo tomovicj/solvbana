@@ -10,7 +10,7 @@ import {
 
 const GET_TRANSACTION_CONFIG = {
   encoding: 'json',
-  maxSupportedTransactionVersion: 0,
+  maxSupportedTransactionVersion: 1,
   commitment: 'confirmed',
 } as const;
 

@@ -88,7 +88,14 @@ describe('computeFailureIn', () => {
 describe('explainCompute', () => {
   it('tells the reader they set a limit when they did', () => {
     const explanation = explainCompute(
-      { scope: 'frame', consumed: 11921, budget: 11921, requestedLimit: 102792, stackFrame: null },
+      {
+        scope: 'frame',
+        consumed: 11921,
+        budget: 11921,
+        requestedLimit: 102792,
+        limitSource: 'compute-budget-instruction',
+        stackFrame: null,
+      },
       'Prog',
     );
 
@@ -103,6 +110,7 @@ describe('explainCompute', () => {
         consumed: 200000,
         budget: null,
         requestedLimit: null,
+        limitSource: 'compute-budget-instruction',
         stackFrame: null,
       },
       'Prog',
@@ -120,6 +128,7 @@ describe('explainCompute', () => {
         consumed: 4218,
         budget: 200000,
         requestedLimit: 200000,
+        limitSource: 'compute-budget-instruction',
         stackFrame: 3,
       },
       'Prog',
@@ -127,5 +136,42 @@ describe('explainCompute', () => {
 
     expect(explanation).toMatch(/4KB/);
     expect(explanation).not.toMatch(/raise that value/);
+  });
+});
+
+describe('explainCompute, version 1', () => {
+  it('points at the transaction config rather than a ComputeBudget instruction', () => {
+    const explanation = explainCompute(
+      {
+        scope: 'frame',
+        consumed: 38,
+        budget: 38,
+        requestedLimit: 38,
+        limitSource: 'transaction-config',
+        stackFrame: null,
+      },
+      'Prog',
+    );
+
+    expect(explanation).toMatch(/transactionConfig/);
+    expect(explanation).not.toMatch(/SetComputeUnitLimit/);
+  });
+
+  it('reports the limit as not stated rather than inventing one', () => {
+    const explanation = explainCompute(
+      {
+        scope: 'transaction',
+        consumed: 38,
+        budget: null,
+        requestedLimit: null,
+        limitSource: 'transaction-config',
+        stackFrame: null,
+      },
+      'Prog',
+    );
+
+    expect(explanation).toMatch(/states no compute unit limit/);
+    expect(explanation).toMatch(/explicitly/);
+    expect(explanation).not.toMatch(/default|raises it/);
   });
 });

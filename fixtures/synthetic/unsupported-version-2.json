@@ -1,0 +1,83 @@
+{
+  "transaction": {
+    "signatures": [
+      "2Ku3fgEnLrzkHzSMv38eAR9C1LZqsBkfrdDVsZzczMNfynuWYqvnTTbDnGWPg2ZTe5SD7KQaAU5MPDUoFZkdjajw"
+    ],
+    "message": {
+      "header": {
+        "numRequiredSignatures": 1,
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1
+      },
+      "accountKeys": [
+        "upDaYdqrFNYkLTyErXt8sspNprf7KPZozsQ8Cm4tMdG",
+        "5y3R4xiYVuZzVeK1MyzS2ayERaqRQM7GoBe4fQEvbTTg",
+        "FK7Xk7CYsn77qtseyAvUNmpLWou1BwQdsdqkBsjus9ap",
+        "W1LDCARDa67SPBG7TFpQivHnEZXRtxCFP13ysEd1bWR"
+      ],
+      "recentBlockhash": "FbBbEsjWgizxQgu1MeVyvUmFYghXPtZSto9RA2YFYY4B",
+      "instructions": [
+        {
+          "programIdIndex": 3,
+          "accounts": [2, 0],
+          "data": "11111111ArUa7HGNZUufoqYySgjXV3XPGjPQxCiMbRRrnkBGxBt3",
+          "stackHeight": 1
+        },
+        {
+          "programIdIndex": 3,
+          "accounts": [1, 0],
+          "data": "111111112CAUYQiUo94xkk866wvJkL8zMov7cfMptAsgwRVNctoZ",
+          "stackHeight": 1
+        }
+      ],
+      "transactionConfig": {
+        "priorityFee": 19,
+        "computeUnitLimit": 38,
+        "loadedAccountsDataSizeLimit": 32000,
+        "heapSize": null
+      }
+    }
+  },
+  "meta": {
+    "err": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 2
+        }
+      ]
+    },
+    "status": {
+      "Err": {
+        "InstructionError": [
+          0,
+          {
+            "Custom": 2
+          }
+        ]
+      }
+    },
+    "fee": 5019,
+    "preBalances": [531114324, 1781760, 1781760, 1141440],
+    "postBalances": [531109305, 1781760, 1781760, 1141440],
+    "innerInstructions": [],
+    "logMessages": [
+      "Program W1LDCARDa67SPBG7TFpQivHnEZXRtxCFP13ysEd1bWR invoke [1]",
+      "Program W1LDCARDa67SPBG7TFpQivHnEZXRtxCFP13ysEd1bWR consumed 13 of 38 compute units",
+      "Program W1LDCARDa67SPBG7TFpQivHnEZXRtxCFP13ysEd1bWR failed: custom program error: 0x2"
+    ],
+    "preTokenBalances": [],
+    "postTokenBalances": [],
+    "rewards": [],
+    "loadedAddresses": {
+      "writable": [],
+      "readonly": []
+    },
+    "computeUnitsConsumed": 13,
+    "costUnits": 1661
+  },
+  "version": 2,
+  "slot": 467679210,
+  "transactionIndex": 5,
+  "blockTime": 1794304858
+}

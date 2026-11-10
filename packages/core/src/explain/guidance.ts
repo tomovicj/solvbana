@@ -250,15 +250,24 @@ function computeGuidance(failure: Extract<Finding['failure'], { kind: 'compute' 
       ? ` It used ${String(consumed)} of ${String(budget)} units.`
       : '';
 
+  const v1 = failure.limitSource === 'transaction-config';
+
   if (failure.scope === 'transaction') {
     return {
       meaning: `The transaction ran out of its compute budget.${measured}`,
       causes: [
-        'No SetComputeUnitLimit instruction, so the transaction took the default rather than what it needed.',
+        v1
+          ? failure.requestedLimit === null
+            ? 'The transaction config states no computeUnitLimit, so the instructions ran on a limit the record does not state.'
+            : 'A computeUnitLimit in the transaction config too low for what the instructions need.'
+          : 'No SetComputeUnitLimit instruction, so the transaction took the default rather than what it needed.',
         'More instructions batched together than the shared budget covers.',
       ],
-      fix:
-        failure.requestedLimit === null
+      fix: v1
+        ? failure.requestedLimit === null
+          ? "This version 1 transaction's config states no compute unit limit. Set computeUnitLimit in the transaction config, sized from a simulation of this transaction."
+          : `The transaction's version 1 config set computeUnitLimit to ${String(failure.requestedLimit)} units. Simulate it and raise computeUnitLimit in the transaction config to what it actually needs.`
+        : failure.requestedLimit === null
           ? 'Add a ComputeBudget SetComputeUnitLimit instruction sized from a simulation of this transaction.'
           : `The transaction requested ${String(failure.requestedLimit)} units. Simulate it and raise the limit to what it actually needs.`,
     };
@@ -270,7 +279,11 @@ function computeGuidance(failure: Extract<Finding['failure'], { kind: 'compute' 
       'A loop whose iteration count grows with account data — tick arrays, order books, or holder lists.',
       'Heavy logging in the hot path; every msg! costs units and pushes the important lines toward the 10KB truncation cap.',
     ],
-    fix: 'Raise the limit with SetComputeUnitLimit if the work is legitimate, or bound the loop if it is not.',
+    fix: v1
+      ? failure.requestedLimit === null
+        ? 'Set computeUnitLimit explicitly in the transaction config if the work is legitimate, or bound the loop if it is not.'
+        : 'Raise computeUnitLimit in the transaction config if the work is legitimate, or bound the loop if it is not.'
+      : 'Raise the limit with SetComputeUnitLimit if the work is legitimate, or bound the loop if it is not.',
   };
 }
 
