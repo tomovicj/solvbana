@@ -1,4 +1,5 @@
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { elfHash, parseAddress, type ArtifactStore, type SourceFile } from '@solvbana/core';
 
@@ -151,7 +152,16 @@ export function createFilesystemArtifactStore(directory: string): WritableArtifa
       if (path === null) throw new TypeError(`Not a program address: ${programId}`);
 
       await mkdir(idlDir, { recursive: true });
-      await writeFile(path, JSON.stringify(document));
+      // Written beside the target and renamed over it, so a concurrent read
+      // sees the old document or the new one, never a truncated file.
+      const temporary = join(idlDir, `.tmp-${randomUUID()}`);
+      try {
+        await writeFile(temporary, JSON.stringify(document));
+        await rename(temporary, path);
+      } catch (error) {
+        await rm(temporary, { force: true });
+        throw error;
+      }
     },
 
     async putBinary(bytes) {
@@ -171,18 +181,51 @@ export function createFilesystemArtifactStore(directory: string): WritableArtifa
       const root = sourceRoot(programId);
       if (root === null) throw new TypeError(`Not a program address: ${programId}`);
 
-      let written = 0;
+      // Every path is proven before anything touches the disk, so a refused
+      // upload cannot leave a partial tree of any kind behind.
       for (const file of files) {
         if (!isSafeSourcePath(file.path)) {
           throw new TypeError(`Refusing to store source under ${file.path}.`);
         }
-        const path = join(root, file.path);
-        await mkdir(dirname(path), { recursive: true });
-        await writeFile(path, file.contents);
-        written += 1;
       }
 
-      return written;
+      // The new tree is built beside the old one and swapped in, so a reader
+      // never sees a half-written tree and a failed upload keeps the previous
+      // one. A leading dot cannot collide with a program id: base58 has none.
+      await mkdir(srcDir, { recursive: true });
+      const fresh = join(srcDir, `.new-${randomUUID()}`);
+      const stale = join(srcDir, `.old-${randomUUID()}`);
+
+      try {
+        await mkdir(fresh);
+        for (const file of files) {
+          const path = join(fresh, file.path);
+          await mkdir(dirname(path), { recursive: true });
+          await writeFile(path, file.contents);
+        }
+
+        let hadPrevious = true;
+        try {
+          await rename(root, stale);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+          hadPrevious = false;
+        }
+
+        try {
+          await rename(fresh, root);
+        } catch (error) {
+          // Put the previous tree back rather than leave the program with none.
+          if (hadPrevious) await rename(stale, root).catch(() => undefined);
+          throw error;
+        }
+
+        if (hadPrevious) await rm(stale, { recursive: true, force: true });
+      } finally {
+        await rm(fresh, { recursive: true, force: true });
+      }
+
+      return files.length;
     },
   };
 }

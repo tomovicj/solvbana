@@ -75,6 +75,66 @@ describe('the filesystem artifact store', () => {
     expect(await artifacts.fetchBinary('../../etc/passwd')).toBeNull();
   });
 
+  it('replaces a source tree rather than merging into it', async () => {
+    // The engine proves a tree by its error enum, so a stale file from an
+    // earlier revision would mix two revisions into one answer.
+    const { artifacts } = await store();
+    await artifacts.putSource(PROGRAM, [
+      { path: 'a.rs', contents: 'a' },
+      { path: 'b.rs', contents: 'b' },
+    ]);
+
+    const written = await artifacts.putSource(PROGRAM, [{ path: 'a.rs', contents: 'a2' }]);
+
+    expect(written).toBe(1);
+    expect(await artifacts.fetchSource(PROGRAM)).toEqual({
+      files: [{ path: 'a.rs', contents: 'a2' }],
+    });
+  });
+
+  it('keeps the previous tree when a later upload is refused', async () => {
+    const { artifacts } = await store();
+    await artifacts.putSource(PROGRAM, [
+      { path: 'a.rs', contents: 'a' },
+      { path: 'b.rs', contents: 'b' },
+    ]);
+
+    await expect(
+      artifacts.putSource(PROGRAM, [
+        { path: 'c.rs', contents: 'c' },
+        { path: '../escape.rs', contents: 'x' },
+      ]),
+    ).rejects.toThrow(/Refusing/);
+
+    const fetched = await artifacts.fetchSource(PROGRAM);
+    expect(fetched?.files.map((f) => f.path).sort()).toEqual(['a.rs', 'b.rs']);
+  });
+
+  it('leaves no temporary files behind after a successful put', async () => {
+    const { artifacts, directory } = await store();
+    await artifacts.putIdl(PROGRAM, { name: 'demo' });
+    await artifacts.putIdl(PROGRAM, { name: 'demo2' });
+    await artifacts.putSource(PROGRAM, [{ path: 'a.rs', contents: 'a' }]);
+    await artifacts.putSource(PROGRAM, [{ path: 'b.rs', contents: 'b' }]);
+
+    expect(await readdir(join(directory, 'idl'))).toEqual([`${PROGRAM}.json`]);
+    expect(await readdir(join(directory, 'src'))).toEqual([PROGRAM]);
+  });
+
+  it('round-trips nested source paths', async () => {
+    const { artifacts } = await store();
+    await artifacts.putSource(PROGRAM, [
+      { path: 'src/lib.rs', contents: 'lib' },
+      { path: 'src/instructions/buy.rs', contents: 'buy' },
+    ]);
+
+    const fetched = await artifacts.fetchSource(PROGRAM);
+    expect(fetched?.files.sort((x, y) => x.path.localeCompare(y.path))).toEqual([
+      { path: 'src/instructions/buy.rs', contents: 'buy' },
+      { path: 'src/lib.rs', contents: 'lib' },
+    ]);
+  });
+
   it('treats an unreadable artifact as absent', async () => {
     // The directory is a plain directory and someone may put something else
     // there. That must degrade a diagnosis, never crash one.
