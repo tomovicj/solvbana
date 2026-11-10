@@ -236,6 +236,19 @@ export interface ReadComparison {
   } | null;
 }
 
+/**
+ * A source declaration as it appears in the explanation.
+ *
+ * A declaration is only produced when the deployment is slot-accurate, or when no
+ * deployment check ran at all. `caveat` is non-null only in that second case and
+ * only when the numbering proof did not confirm the tree: it says the tree was not
+ * tied to the revision that ran. Where the deployment check ran and did not
+ * establish the deployed binary, no declaration is produced.
+ */
+export interface ExplainedDeclaration extends AccountDeclaration {
+  caveat: string | null;
+}
+
 /** What this failure means and what to do about it. */
 export interface Guidance {
   /** What this class of failure means, in plain words. */
@@ -287,7 +300,7 @@ export interface Explanation {
    * instead of parsing it back out of a sentence. `null` whenever no source was
    * supplied, which is every diagnosis that does not go through `POST /artifacts`.
    */
-  declaration: AccountDeclaration | null;
+  declaration: ExplainedDeclaration | null;
   guidance: Guidance;
   /** Why each part is present, absent, or partial. */
   notes: string[];

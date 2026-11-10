@@ -161,6 +161,7 @@ export type {
   DerivationSource,
   DerivationStatus,
   Explanation,
+  ExplainedDeclaration,
   Guidance,
   LamportDelta,
   ReadComparison,

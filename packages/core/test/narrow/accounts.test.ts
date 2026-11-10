@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { attributeFor, contextStruct, findDeclaration, narrow, type Finding } from '@solvbana/core';
 import { sourceTree } from '../fixtures.ts';
+import { MAX_ATTRIBUTE_LINES } from '../../src/narrow/accounts.ts';
+import { MAX_FILE_CHARS } from '../../src/narrow/sites.ts';
 
 const vault = sourceTree('vault');
 
@@ -160,5 +162,201 @@ describe('narrowing an account-attributed error', () => {
     // A custom error blaming no account goes down the throw-site path unchanged.
     const { candidates } = narrow(vault, finding('VaultLocked', null, 6000), 'Withdraw');
     expect(candidates).toHaveLength(1);
+  });
+});
+
+describe('large and hostile inputs', () => {
+  const struct = (fields: number, attrLines: number) => {
+    const body = Array.from({ length: fields }, (_, i) => {
+      const attr = Array.from({ length: attrLines }, (_, j) => `        // doc ${String(j)}`);
+      return [
+        `    /// field ${String(i)}`,
+        ...attr,
+        '    #[account(',
+        '        mut,',
+        '        has_one = authority,',
+        '    )]',
+        `    pub f${String(i)}: Account<'info, Thing>,`,
+        '',
+      ].join('\n');
+    }).join('\n');
+    return `fn go(ctx: Context<Big>) {}\n#[derive(Accounts)]\npub struct Big<'info> {\n${body}\n}\n`;
+  };
+
+  it('reads a 70-field struct of over 500 lines to its closing brace', () => {
+    const source = struct(70, 1);
+    expect(source.split('\n').length).toBeGreaterThan(545);
+    const outcome = findDeclaration(
+      { files: [{ path: 'a.rs', contents: source }] },
+      'Go',
+      'f59',
+      'ConstraintHasOne',
+    );
+    expect(outcome.kind).toBe('found');
+    expect(outcome.kind === 'found' && outcome.declaration.constraint).toBe('has_one = authority');
+  });
+
+  it('reports an unclosed struct as truncated, never as a disagreement', () => {
+    const source =
+      "fn go(ctx: Context<Big>) {}\n#[derive(Accounts)]\npub struct Big<'info> {\n  pub a: u8,\n";
+    const tree = { files: [{ path: 'a.rs', contents: source }] };
+    expect(findDeclaration(tree, 'Go', 'zzz', 'ConstraintSeeds').kind).toBe('truncated');
+
+    const { candidates, reasons } = narrow(tree, finding('ConstraintSeeds', 'zzz', 2006), 'Go');
+    expect(candidates).toEqual([]);
+    expect(reasons.join(' ')).toContain('too large to read in full');
+    expect(reasons.join(' ')).not.toContain('uploaded source and the deployed binary disagree');
+  });
+
+  it('flags a declaration whose attribute block could not be read', () => {
+    const lines = Array.from({ length: MAX_ATTRIBUTE_LINES + 5 }, () => '        mut,');
+    const source =
+      "fn go(ctx: Context<S>) {}\n#[derive(Accounts)]\npub struct S<'info> {\n    #[account(\n" +
+      `${lines.join('\n')}\n    )]\n    pub a: Account<'info, T>,\n}\n`;
+    const tree = { files: [{ path: 'a.rs', contents: source }] };
+    const outcome = findDeclaration(tree, 'Go', 'a', 'ConstraintMut');
+    expect(outcome.kind === 'found' && outcome.declaration.attributesTruncated).toBe(true);
+
+    const { reasons } = narrow(tree, finding('ConstraintMut', 'a', 2000), 'Go');
+    expect(reasons.join(' ')).toContain('could not be read in full');
+  });
+
+  it('does not call a field unknown when a file was not read', () => {
+    const big = { path: 'big.rs', contents: ' '.repeat(MAX_FILE_CHARS + 1) };
+    const outcome = findDeclaration(
+      { files: [...vault.files, big] },
+      null,
+      'nowhere',
+      'ConstraintSeeds',
+    );
+    expect(outcome.kind).toBe('unknown');
+    expect(outcome.unread?.[0]).toContain('big.rs');
+
+    const { reasons } = narrow(
+      { files: [...vault.files, big] },
+      finding('ConstraintSeeds', 'nowhere', 2006),
+      null,
+    );
+    expect(reasons.join(' ')).toContain('not established');
+  });
+
+  it('refuses names that are not identifiers', () => {
+    expect(findDeclaration(vault, 'Claim', '(a+)+', 'ConstraintSeeds')).toMatchObject({
+      kind: 'refused',
+    });
+    expect(findDeclaration(vault, '(a+)+$', 'x', 'ConstraintSeeds').kind).toBe('refused');
+    expect(contextStruct(vault, '(a+)+$')).toBeNull();
+  });
+});
+
+describe('the struct the handler named is the only one offered', () => {
+  const two = (buy: string, extra = '') =>
+    `${extra}pub fn buy(ctx: Context<Buy>) {}\n${buy}\n` +
+    "#[derive(Accounts)]\npub struct Sell<'info> {\n    pub vault: Account<'info, V>,\n}\n";
+  const tree = (contents: string) => ({ files: [{ path: 'a.rs', contents }] });
+
+  it('finds the derive more than four lines above the struct', () => {
+    const buy =
+      '#[derive(Accounts)]\n#[instruction(amount: u64)]\n/// one\n/// two\n/// three\n' +
+      "pub struct Buy<'info> {\n    pub vault: Account<'info, V>,\n}";
+    const outcome = findDeclaration(tree(two(buy)), 'Buy', 'vault', 'ConstraintMut');
+    expect(outcome).toMatchObject({ kind: 'found', viaHandler: true });
+    expect(outcome.kind === 'found' && outcome.declaration.struct).toBe('Buy');
+  });
+
+  it('refuses rather than substituting Sell when Buy is not an accounts struct', () => {
+    const outcome = findDeclaration(
+      tree(two("pub struct Buy<'info> {\n    pub vault: Account<'info, V>,\n}")),
+      'Buy',
+      'vault',
+      'ConstraintMut',
+    );
+    expect(outcome.kind).toBe('refused');
+    expect(outcome.kind === 'refused' && outcome.reason).toContain('Context<Buy>');
+    const { candidates, reasons } = narrow(
+      tree(two("pub struct Buy<'info> {\n    pub vault: Account<'info, V>,\n}")),
+      finding('ConstraintMut', 'vault', 2000),
+      'Buy',
+    );
+    expect(candidates).toEqual([]);
+    expect(reasons.join(' ')).not.toContain('only struct');
+  });
+
+  it('takes the last path segment of a qualified Context argument', () => {
+    const source =
+      "pub fn buy(ctx: Context<crate::instructions::Buy>) {}\n#[derive(Accounts)]\npub struct Buy<'info> {\n    pub vault: Account<'info, V>,\n}\n#[derive(Accounts)]\npub struct Sell<'info> {\n    pub vault: Account<'info, V>,\n}\n";
+    expect(contextStruct(tree(source), 'Buy')).toBe('Buy');
+    expect(findDeclaration(tree(source), 'Buy', 'vault', 'ConstraintMut')).toMatchObject({
+      kind: 'found',
+      viaHandler: true,
+    });
+  });
+
+  it('does not read the next function’s Context as this handler’s', () => {
+    const source =
+      "fn buy(amount: u64) -> u64 { amount }\npub fn sell(ctx: Context<Sell>) {}\n#[derive(Accounts)]\npub struct Sell<'info> {\n    pub vault: Account<'info, V>,\n}\n";
+    expect(contextStruct(tree(source), 'Buy')).toBeNull();
+    // With no Context read, the fallback is the labelled only-struct path.
+    expect(findDeclaration(tree(source), 'Buy', 'vault', 'ConstraintMut')).toMatchObject({
+      kind: 'found',
+      viaHandler: false,
+    });
+  });
+
+  it('refuses when several fns of the name take different Context types', () => {
+    const source = 'pub fn buy(ctx: Context<A>) {}\nmod m { pub fn buy(ctx: Context<B>) {} }\n';
+    const outcome = findDeclaration(tree(source), 'Buy', 'vault', 'ConstraintMut');
+    expect(outcome.kind).toBe('refused');
+    expect(outcome.kind === 'refused' && outcome.reason).toContain('A, B');
+  });
+});
+
+describe('field and attribute reading', () => {
+  const tree = (body: string) => ({
+    files: [
+      {
+        path: 'a.rs',
+        contents: `pub fn go(ctx: Context<S>) {}\n#[derive(Accounts)]\npub struct S<'info> {\n${body}\n}\n`,
+      },
+    ],
+  });
+
+  it('matches a field with restricted visibility', () => {
+    for (const vis of ['pub ', 'pub(crate) ', 'pub(super) ', 'pub(in crate::a) ', '']) {
+      const outcome = findDeclaration(
+        tree(`    #[account(mut)]\n    ${vis}vault: Account<'info, V>,`),
+        'Go',
+        'vault',
+        'ConstraintMut',
+      );
+      expect(outcome.kind).toBe('found');
+      expect(outcome.kind === 'found' && outcome.declaration.constraint).toBe('mut');
+    }
+  });
+
+  it('keeps attributes whose string literals hold unbalanced parentheses', () => {
+    const outcome = findDeclaration(
+      tree('    #[account(seeds = [b"v(", x.as_ref()], bump)]\n    pub vault: Account<\'info, V>,'),
+      'Go',
+      'vault',
+      'ConstraintSeeds',
+    );
+    expect(outcome.kind === 'found' && outcome.declaration.attributes).toEqual([
+      'seeds = [b"v(", x.as_ref()]',
+      'bump',
+    ]);
+    expect(outcome.kind === 'found' && outcome.declaration.attributesTruncated).toBeUndefined();
+  });
+
+  it('reads an account attribute across a #[doc] attribute and doc comments', () => {
+    const outcome = findDeclaration(
+      tree(
+        '    #[account(mut, has_one = authority)]\n    /// the vault\n    #[doc = "x)"]\n    pub vault: Account<\'info, V>,',
+      ),
+      'Go',
+      'vault',
+      'ConstraintHasOne',
+    );
+    expect(outcome.kind === 'found' && outcome.declaration.constraint).toBe('has_one = authority');
   });
 });

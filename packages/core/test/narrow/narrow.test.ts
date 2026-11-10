@@ -109,3 +109,65 @@ describe('narrow', () => {
     expect(reasons.join(' ')).toContain('No handler was identified');
   });
 });
+
+describe('narrow name admission', () => {
+  const reason = 'is not a Rust identifier, so there is nothing in source to look for under it';
+
+  it('sets a hostile handler name aside quickly, saying so, and still answers', () => {
+    const start = performance.now();
+    const { candidates, reasons } = narrow(vault, finding('VaultLocked', 6000), '(a+)+$'.repeat(8));
+    expect(performance.now() - start).toBeLessThan(500);
+    // The handler only ranks; the answer does not depend on it.
+    expect(candidates).toHaveLength(1);
+    expect(reasons.join(' ')).toContain(reason);
+    expect(reasons.join(' ')).toContain('It was not used');
+  });
+
+  it('refuses a hostile error name', () => {
+    const { candidates, reasons } = narrow(vault, finding('(a+)+', 6000), 'Withdraw');
+    expect(candidates).toEqual([]);
+    expect(reasons.join(' ')).toContain(reason);
+  });
+
+  it('refuses a hostile blamed field', () => {
+    const f = finding('ConstraintSeeds', 2006);
+    f.failure = { kind: 'anchor', account: '(a+)+', site: null, comparison: null };
+    expect(narrow(vault, f, 'Claim').reasons.join(' ')).toContain(reason);
+  });
+
+  it('keeps the not-searched reason when a declaration error falls through', () => {
+    const big = { path: 'big.rs', contents: ' '.repeat(1_000_001) };
+    const f = finding('ConstraintSeeds', 2006);
+    f.failure = { kind: 'anchor', account: 'not_a_field', site: null, comparison: null };
+    const { reasons } = narrow({ files: [...vault.files, big] }, f, 'Claim');
+    expect(reasons.join(' ')).toContain('were not searched');
+  });
+});
+
+describe('narrow candidate cap', () => {
+  it('reports at most 50 sites and states how many matched', () => {
+    const lines = Array.from({ length: 120 }, (_, i) => `require!(c${String(i)}, E::Boom);`);
+    const f = finding('Boom', 6000);
+    const { candidates, reasons } = narrow(
+      { files: [{ path: 'a.rs', contents: lines.join('\n') }] },
+      f,
+      null,
+    );
+    expect(candidates).toHaveLength(50);
+    expect(candidates.map((c) => c.rank)).toEqual(Array.from({ length: 50 }, (_, i) => i + 1));
+    expect(reasons.join(' ')).toContain('120 sites');
+    expect(reasons.join(' ')).toContain('the 50 best-ranked are shown');
+  });
+
+  it('ranks a contained site first even when it comes last in the file', () => {
+    const outside = Array.from({ length: 60 }, () => 'fn other() { require!(a, E::Boom); }');
+    const source = `${outside.join('\n')}\nfn go() {\n    require!(b, E::Boom);\n}\n`;
+    const { candidates } = narrow(
+      { files: [{ path: 'a.rs', contents: source }] },
+      finding('Boom', 6000),
+      'Go',
+    );
+    expect(candidates[0]?.location.line).toBe(62);
+    expect(candidates[0]?.rationale).toContain('inside go');
+  });
+});

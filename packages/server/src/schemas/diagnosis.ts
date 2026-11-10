@@ -474,6 +474,9 @@ const AccountDeclarationSchema = Type.Object({
   attributes: Type.Array(Type.String()),
   constraint: Type.Union([Type.String(), Type.Null()]),
   text: Type.String(),
+  attributesTruncated: Type.Optional(Type.Boolean()),
+  /** Non-null only when no deployment check ran and the tree was not proven; else `null`. */
+  caveat: Type.Union([Type.String(), Type.Null()]),
 });
 
 const ExplanationSchema = Type.Object({

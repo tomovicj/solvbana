@@ -9,6 +9,7 @@ import { narrow } from './narrow/narrow.ts';
 import type { AccountDeclaration } from './narrow/accounts.ts';
 import type { Explanation } from './explain/types.ts';
 import type { ResolvedIdl } from './resolve/idl.ts';
+import { isSlotAccurate, type Deployment } from './resolve/deployment.ts';
 import { refineWithResolution } from './resolve/refine.ts';
 import { resolveProgram, type ResolveOptions } from './resolve/resolve.ts';
 import { explainNotFound } from './rpc/client.ts';
@@ -109,6 +110,56 @@ async function withResolution(
 }
 
 /**
+ * What is known of the deployment the uploaded tree would be matched against.
+ *
+ * - `accurate`: checked, and the deployed binary is provably the one that ran
+ *   (live at or before the failing slot, or an immutable loader).
+ * - `unverified`: the check ran, or was configured to and failed, and did not
+ *   establish that. Covers `upgraded-since`, `closed`, `unavailable`, and a
+ *   resolution that threw while an account source was configured. Not knowing is
+ *   one state of knowledge however it came about.
+ * - `skipped`: no account source was configured, so no check ran. The caller chose
+ *   to run without chain reads.
+ */
+type DeploymentStance =
+  { kind: 'accurate' } | { kind: 'unverified'; found: string } | { kind: 'skipped' };
+
+/** What the deployment check found, per kind, with the slots where they are known. */
+function describeFinding(deployment: Deployment): string {
+  switch (deployment.kind) {
+    case 'upgraded-since':
+      return (
+        `the program was redeployed at slot ${String(deployment.lastDeploySlot)}, after this ` +
+        `transaction ran at slot ${String(deployment.failingSlot)}`
+      );
+    case 'closed':
+      return `the program's data account ${deployment.programData} no longer exists, so it was closed`;
+    case 'unavailable':
+      return `the deployment could not be read (${deployment.reason})`;
+    case 'live':
+    case 'immutable':
+      return 'the deployment is slot-accurate';
+  }
+}
+
+function deploymentStance(analysis: Analysis, deps: DiagnoseDeps): DeploymentStance {
+  const deployment = analysis.finding.resolution?.deployment;
+  if (deployment !== undefined) {
+    return isSlotAccurate(deployment)
+      ? { kind: 'accurate' }
+      : { kind: 'unverified', found: describeFinding(deployment) };
+  }
+  if (deps.accounts !== undefined) {
+    return {
+      kind: 'unverified',
+      found:
+        'source resolution failed or produced no result, so the deployment could not be checked',
+    };
+  }
+  return { kind: 'skipped' };
+}
+
+/**
  * Locate candidate throw sites in uploaded source.
  *
  * **This is the one enrichment that legitimately changes `confidence` and
@@ -117,41 +168,109 @@ async function withResolution(
  * rule is different here. Narrowing is inference over source, which is exactly
  * what `narrowed` was reserved for.
  *
- * It only ever raises `variant-only` to `narrowed`, never further and never in
- * the other direction. An uploaded tree is not hash-proven against the deployed
- * binary, so `exact` — a location the program printed about itself — is stronger
- * evidence than anything found here and is left alone.
+ * The rules, by deployment stance:
+ *
+ * - **`unverified`: the uploaded source is not used at all.** The deployment gates
+ *   everything, and an upload does not reopen a question the slot check closed. No
+ *   candidates, no promotion, no declaration. Error enums are usually append-only,
+ *   so the numbering proof agreeing says little about which revision ran, and a
+ *   mapped line from the wrong revision is worse than none. This mirrors how an
+ *   uploaded IDL is not read in that state. One reason is emitted — only when a
+ *   tree exists, and only where it would have mattered (`variant-only`, `unknown`).
+ * - **`accurate`: narrowing runs**, and promotes `variant-only` to `narrowed` when
+ *   it yields candidates.
+ * - **`skipped`: as `accurate`**, since the caller chose to run without chain
+ *   reads, but a reason says the deployment was not checked and the declaration
+ *   carries a caveat unless the numbering proof confirmed the tree. This is the
+ *   only case where `caveat` is non-null.
+ *
+ * **It only ever acts on `variant-only`.** A location the program printed about
+ * itself (`exact`) is the strongest evidence in the cascade and nothing found
+ * here may displace it; `narrowed` is already narrowed. For those, `narrow()` is
+ * run only to fetch the declaration for the explanation, and only when the
+ * deployment is accurate — a constraint expression beside an exact location is
+ * useful only when the tree provably describes the revision that ran. Its
+ * candidates are discarded. For `unknown` there is no name, so narrowing refuses
+ * and its reason is kept.
  */
 async function withNarrowing(
   analysis: Analysis,
   deps: DiagnoseDeps,
-): Promise<{ analysis: Analysis; declaration: AccountDeclaration | null }> {
+): Promise<{ analysis: Analysis; declaration: AccountDeclaration | null; caveat: string | null }> {
   const store = deps.artifacts;
   const programId = analysis.finding.program;
-  if (store?.fetchSource === undefined || programId === null) {
-    return { analysis, declaration: null };
-  }
+  const untouched = { analysis, declaration: null, caveat: null };
+  if (store?.fetchSource === undefined || programId === null) return untouched;
 
   try {
     const tree = await store.fetchSource(programId);
-    if (tree === null || tree.files.length === 0) return { analysis, declaration: null };
+    if (tree === null || tree.files.length === 0) return untouched;
 
-    const { candidates, reasons, declaration } = narrow(
+    const stance = deploymentStance(analysis, deps);
+    const { confidence } = analysis;
+    const open = confidence === 'variant-only' || confidence === 'unknown';
+
+    if (stance.kind === 'unverified') {
+      if (!open) return untouched;
+      return {
+        analysis: {
+          ...analysis,
+          reasons: [
+            ...analysis.reasons,
+            `Source was uploaded for this program, but ${stance.found}, so nothing establishes ` +
+              'that the uploaded tree is the revision that ran, and no line from it is ' +
+              'reported — a line number from the wrong revision is worse than none.',
+          ],
+        },
+        declaration: null,
+        caveat: null,
+      };
+    }
+
+    if (!open && !(confidence === 'exact' && stance.kind === 'accurate')) return untouched;
+
+    const { candidates, reasons, declaration, proof } = narrow(
       tree,
       analysis.finding,
       analysis.finding.handler,
     );
+
+    if (confidence !== 'variant-only') {
+      // `exact` keeps only the declaration; `unknown` keeps narrow's refusal.
+      return {
+        analysis:
+          confidence === 'unknown'
+            ? { ...analysis, reasons: [...analysis.reasons, ...reasons] }
+            : analysis,
+        declaration,
+        caveat: null,
+      };
+    }
+
+    const skipped = stance.kind === 'skipped';
     return {
       analysis: {
         ...analysis,
-        confidence:
-          candidates.length > 0 && analysis.confidence === 'variant-only'
-            ? 'narrowed'
-            : analysis.confidence,
+        confidence: candidates.length > 0 ? 'narrowed' : confidence,
         candidates: candidates.length > 0 ? candidates : analysis.candidates,
-        reasons: [...analysis.reasons, ...reasons],
+        reasons: [
+          ...analysis.reasons,
+          ...reasons,
+          ...(skipped && candidates.length > 0
+            ? [
+                'The deployment was not checked, because no account source was configured, so it ' +
+                  'is not known whether the deployed code is the code that ran.',
+              ]
+            : []),
+        ],
       },
       declaration,
+      caveat:
+        skipped && declaration !== null && proof?.kind !== 'confirmed'
+          ? 'The deployment was not checked, because no account source was configured, and the ' +
+            'uploaded source could not be tied to the revision that ran, so this declaration ' +
+            'may describe different code.'
+          : null,
     };
   } catch (error) {
     // Same contract as resolution: an enrichment that throws must not cost the
@@ -167,6 +286,7 @@ async function withNarrowing(
         ],
       },
       declaration: null,
+      caveat: null,
     };
   }
 }
@@ -185,10 +305,11 @@ async function withExplanation(
   analysis: Analysis,
   idl: ResolvedIdl | null,
   declaration: AccountDeclaration | null,
+  caveat: string | null,
 ): Promise<{ explanation: Explanation | undefined; reason: string | null }> {
   try {
     return {
-      explanation: await explainFailure(transaction, analysis.finding, idl, declaration),
+      explanation: await explainFailure(transaction, analysis.finding, idl, declaration, caveat),
       reason: null,
     };
   } catch (error) {
@@ -322,12 +443,13 @@ export async function diagnose(signature: string, deps: DiagnoseDeps): Promise<D
 
   const transaction = normalizeTransaction(outcome.raw, signature);
   const resolved = await withResolution(analyze(transaction), transaction, deps);
-  const { analysis, declaration } = await withNarrowing(resolved.analysis, deps);
+  const { analysis, declaration, caveat } = await withNarrowing(resolved.analysis, deps);
   const { explanation, reason } = await withExplanation(
     transaction,
     analysis,
     resolved.idl,
     declaration,
+    caveat,
   );
 
   return {
