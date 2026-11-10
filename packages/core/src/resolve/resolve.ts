@@ -58,13 +58,62 @@ function summarize(idl: ResolvedIdl): IdlSummary {
 }
 
 /**
+ * How many resolutions the process keeps.
+ *
+ * An entry holds a fully parsed IDL, which for a large program is hundreds of
+ * kilobytes of objects, and the key multiplies programs by the discriminator
+ * sets seen for them. 128 keeps the working set of a busy hosted service (the
+ * few dozen programs that account for most failures, each under a handful of
+ * instruction sets) resident while bounding the worst case to tens of megabytes.
+ * A miss costs three prefix reads, so undersizing degrades to slower, not wrong.
+ */
+const DEFAULT_CACHE_CAPACITY = 128;
+
+/**
+ * A least-recently-used map. An insertion-ordered `Map` is already the data
+ * structure: the first key is the oldest, and re-inserting on a hit moves an
+ * entry to the back.
+ */
+export function createResolutionCache(capacity: number = DEFAULT_CACHE_CAPACITY) {
+  const entries = new Map<string, ResolutionResult>();
+
+  return {
+    get(key: string): ResolutionResult | undefined {
+      const hit = entries.get(key);
+      if (hit === undefined) return undefined;
+      entries.delete(key);
+      entries.set(key, hit);
+      return hit;
+    },
+    set(key: string, value: ResolutionResult): void {
+      entries.delete(key);
+      entries.set(key, value);
+      while (entries.size > capacity) {
+        const oldest = entries.keys().next();
+        if (oldest.done === true) break;
+        entries.delete(oldest.value);
+      }
+    },
+    has: (key: string): boolean => entries.has(key),
+    keys: (): string[] => [...entries.keys()],
+    forgetProgram(programId: string): void {
+      for (const key of [...entries.keys()]) {
+        if (key.startsWith(`${programId}@`)) entries.delete(key);
+      }
+    },
+    clear: (): void => entries.clear(),
+  };
+}
+
+/**
  * Cache keyed on a program and the deployment that was live for it.
  *
  * `lastDeploySlot` makes the key immutable by construction: a redeploy changes it,
- * so a stale entry cannot outlive the binary it describes. Process-local for now;
- * Phase 6 owns caching that survives a restart.
+ * so a stale entry cannot outlive the binary it describes. Bounded so a
+ * long-running service cannot accumulate one entry per program and discriminator
+ * set forever. Process-local for now; Phase 6 owns caching that survives a restart.
  */
-const cache = new Map<string, ResolutionResult>();
+const cache = createResolutionCache();
 
 /** Drop everything cached. Exists so tests do not leak resolutions into each other. */
 export function clearResolutionCache(): void {
@@ -81,9 +130,7 @@ export function clearResolutionCache(): void {
  * diagnosis after an upload keeps answering from before it.
  */
 export function forgetProgram(programId: string): void {
-  for (const key of cache.keys()) {
-    if (key.startsWith(`${programId}@`)) cache.delete(key);
-  }
+  cache.forgetProgram(programId);
 }
 
 /**
@@ -104,10 +151,15 @@ export async function resolveProgram(
   const deployment = await resolveDeployment(programId, failingSlot, deps.accounts);
   notes.push(describeDeployment(deployment));
 
+  // Only a live deployment is cached: the key's immutability argument rests on
+  // the deployment slot being the one that is live, and an `upgraded-since`
+  // refusal is cheap (it is the deployment read already made above). The
+  // discriminators are sorted because their order is an accident of instruction
+  // order in the transaction, not a property of the set.
   const cacheKey =
     deployment.kind === 'live'
       ? `${programId}@${String(deployment.lastDeploySlot)}:${String(options.verifySource ?? false)}:` +
-        `${(options.observedDiscriminators ?? []).join(',')}`
+        `${[...(options.observedDiscriminators ?? [])].sort().join(',')}`
       : null;
 
   const cached = cacheKey === null ? undefined : cache.get(cacheKey);
