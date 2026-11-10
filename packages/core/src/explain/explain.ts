@@ -86,7 +86,16 @@ export async function explainFailure(
    * runtime values without this tier learning how to fetch anything.
    */
   declaration: AccountDeclaration | null = null,
+  /**
+   * Why the declaration must not be read as established, when it cannot be.
+   *
+   * Decided by the narrowing step, which alone knows whether the tree was tied to
+   * the failing revision. Carried onto the declaration rather than left in prose
+   * so a consumer reading the constraint expression sees the caveat beside it.
+   */
+  declarationCaveat: string | null = null,
 ): Promise<Explanation> {
+  const explained = declaration === null ? null : { ...declaration, caveat: declarationCaveat };
   const notes: string[] = [];
   const deltas = balanceDeltas(transaction);
   const compute = computeBreakdown(transaction);
@@ -125,7 +134,7 @@ export async function explainFailure(
       compute,
       deltas,
       comparison,
-      declaration,
+      declaration: explained,
       guidance: buildGuidance(finding, [], [], comparison, []),
       notes,
     };
@@ -187,7 +196,7 @@ export async function explainFailure(
     compute,
     deltas,
     comparison,
-    declaration,
+    declaration: explained,
     guidance: buildGuidance(finding, accounts, derivations, comparison, args ?? []),
     notes,
   };
