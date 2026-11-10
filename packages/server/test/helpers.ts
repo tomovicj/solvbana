@@ -14,6 +14,9 @@ export const TEST_CONFIG: AppConfig = {
   // even if a test ever supplies an account source.
   SOLVBANA_VERIFY_REGISTRY_URL: '',
   SOLVBANA_MAX_BODY_BYTES: 32 * 1024 * 1024,
+  SOLVBANA_RATE_LIMIT_PER_MINUTE: 1000,
+  SOLVBANA_ALLOW_UNAUTHENTICATED: true,
+  SOLVBANA_TRUST_PROXY: false,
 };
 
 const FIXTURES = join(import.meta.dirname, '..', '..', '..', 'fixtures');

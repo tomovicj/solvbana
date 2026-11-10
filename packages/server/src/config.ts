@@ -49,6 +49,37 @@ const ConfigSchema = Type.Object({
    * 413 on a developer's first upload.
    */
   SOLVBANA_MAX_BODY_BYTES: Type.Integer({ minimum: 1024, default: 32 * 1024 * 1024 }),
+  /**
+   * API keys, as comma-separated `tenant:sha256hex` pairs.
+   *
+   * `tenant` matches `^[a-z0-9][a-z0-9_-]{0,63}$` and the hex is the SHA-256 of
+   * the secret key (64 lowercase hex characters), so the server never holds a
+   * plaintext key. A tenant owns its uploaded artifacts and no one else sees
+   * them. Unset or empty is a configuration error unless
+   * `SOLVBANA_ALLOW_UNAUTHENTICATED` is set, whatever `NODE_ENV` says: a
+   * deployment that forgot a variable must not come up open.
+   */
+  SOLVBANA_API_KEYS: Type.Optional(Type.String()),
+  /**
+   * Run without authentication, as the single tenant `local`. Only valid with no
+   * keys configured; setting both is ambiguous and refused.
+   */
+  SOLVBANA_ALLOW_UNAUTHENTICATED: Type.Boolean({ default: false }),
+  /**
+   * Trust `X-Forwarded-For` when deriving the client IP.
+   *
+   * The per-IP rate limit applies to callers who have not authenticated. Behind
+   * a reverse proxy without this, they all share the proxy's address and so one
+   * bucket. Enable it only when a proxy in front overwrites `X-Forwarded-For`;
+   * otherwise any client can set the header and pick its own bucket.
+   */
+  SOLVBANA_TRUST_PROXY: Type.Boolean({ default: false }),
+  /**
+   * Requests allowed per tenant per minute (per client IP before authentication
+   * succeeds). Each `/diagnose` spends paid RPC calls, so this is a cost control
+   * as much as an abuse control. `/health` is exempt.
+   */
+  SOLVBANA_RATE_LIMIT_PER_MINUTE: Type.Integer({ minimum: 1, default: 60 }),
 });
 
 export type AppConfig = Static<typeof ConfigSchema>;
@@ -62,6 +93,84 @@ function isHttpUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** Shared with the tenant stores, which re-check it before joining a name to a path. */
+export const TENANT_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+const KEY_HASH_PATTERN = /^[0-9a-f]{64}$/;
+
+export interface ApiKeyEntry {
+  tenant: string;
+  /** SHA-256 of the secret key, as 32 bytes. */
+  hash: Buffer;
+}
+
+export type ApiKeysResult = { ok: true; keys: ApiKeyEntry[] } | { ok: false; errors: string[] };
+
+/**
+ * Parse `SOLVBANA_API_KEYS`. Errors never echo the hash text: it is not secret
+ * in itself, but a malformed entry may be a pasted plaintext key.
+ */
+export function parseApiKeys(raw: string | undefined): ApiKeysResult {
+  const keys: ApiKeyEntry[] = [];
+  const errors: string[] = [];
+  const seen = new Set<string>();
+  const entries = (raw ?? '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== '');
+
+  entries.forEach((entry, i) => {
+    const label = `SOLVBANA_API_KEYS entry ${String(i + 1)}`;
+    const parts = entry.split(':');
+    const [tenant, hash] = parts;
+    if (parts.length !== 2 || tenant === undefined || hash === undefined) {
+      errors.push(`${label}: expected tenant:sha256hex`);
+      return;
+    }
+    if (!TENANT_PATTERN.test(tenant)) {
+      errors.push(`${label}: tenant must match ${TENANT_PATTERN.source}`);
+      return;
+    }
+    if (!KEY_HASH_PATTERN.test(hash)) {
+      errors.push(`${label} (${tenant}): key hash must be 64 lowercase hex characters (SHA-256)`);
+      return;
+    }
+    if (seen.has(tenant)) {
+      errors.push(`${label}: duplicate tenant ${tenant}`);
+      return;
+    }
+    seen.add(tenant);
+    keys.push({ tenant, hash: Buffer.from(hash, 'hex') });
+  });
+
+  return errors.length > 0 ? { ok: false, errors } : { ok: true, keys };
+}
+
+/**
+ * Running without keys is always an explicit choice, never a default.
+ * Returns the configuration error, or null when the combination is valid.
+ */
+export function authenticationProblem(
+  keyCount: number,
+  allowUnauthenticated: boolean,
+): string | null {
+  // Strictly `true`: a hand-built config may carry the string 'false'.
+  const allowed = allowUnauthenticated === true;
+  if (keyCount === 0 && !allowed) {
+    return (
+      'SOLVBANA_API_KEYS: no API keys configured, and the server will not start open by default. ' +
+      'Either set SOLVBANA_API_KEYS to comma-separated tenant:sha256hex pairs, or set ' +
+      'SOLVBANA_ALLOW_UNAUTHENTICATED=true to run without authentication as the single tenant "local".'
+    );
+  }
+  if (keyCount > 0 && allowed) {
+    return (
+      'SOLVBANA_ALLOW_UNAUTHENTICATED: ambiguous with SOLVBANA_API_KEYS; ' +
+      'set one or the other, not both.'
+    );
+  }
+  return null;
 }
 
 /**
@@ -109,7 +218,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ConfigResult {
   ) {
     urlErrors.push('SOLVBANA_VERIFY_REGISTRY_URL: must be an http(s) URL, or empty to disable');
   }
-  if (urlErrors.length > 0) return { ok: false, errors: urlErrors };
+  const keyErrors: string[] = [];
+  const keys = parseApiKeys(config.SOLVBANA_API_KEYS);
+  if (!keys.ok) keyErrors.push(...keys.errors);
+  else {
+    const problem = authenticationProblem(keys.keys.length, config.SOLVBANA_ALLOW_UNAUTHENTICATED);
+    if (problem !== null) keyErrors.push(problem);
+  }
+  const allErrors = [...urlErrors, ...keyErrors];
+  if (allErrors.length > 0) return { ok: false, errors: allErrors };
 
   return { ok: true, config };
 }

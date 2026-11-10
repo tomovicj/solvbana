@@ -14,7 +14,7 @@ export function registerDiagnoseRoutes(
   app: App,
   source: TransactionSource,
   accounts: AccountSource | undefined,
-  artifacts: ArtifactStore | undefined,
+  storeFor: (tenant: string) => ArtifactStore | undefined,
   resolve: ResolveOptions,
 ): void {
   app.post(
@@ -37,7 +37,15 @@ export function registerDiagnoseRoutes(
 
       // Always returns a diagnosis, never throws for an undiagnosable input —
       // an opaque failure is reported as `unknown`, not as a server error.
-      const diagnosis = await diagnose(parsed.signature, { source, accounts, artifacts, resolve });
+      // Only this caller's artifacts, and a cache scope of its own, so what one
+      // tenant uploaded can neither be read nor be served from a shared entry.
+      const { tenant } = request;
+      const diagnosis = await diagnose(parsed.signature, {
+        source,
+        accounts,
+        artifacts: storeFor(tenant),
+        resolve: { ...resolve, cacheScope: tenant },
+      });
       return toDiagnosisWire(diagnosis);
     },
   );
