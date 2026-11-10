@@ -29,7 +29,7 @@ Delegate to subagents (defined in `.claude/agents/`):
 - Run independent subagents in parallel.
 - Read subagent reports critically; verify important claims before relying on them.
 - Keep changes small and focused. No unrelated refactors.
-- Never read, edit, or commit `.env` files or secrets.
+- Never read, edit, or commit `.env` files or secrets. `.env.example` is the exception: it holds placeholder values only, is checked in, and agents may read and edit it — keep it in step with `packages/server/src/config.ts`, and never put a real value in it.
 
 
 ## Current state
