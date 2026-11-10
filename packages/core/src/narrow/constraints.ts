@@ -50,7 +50,7 @@ const ATTRIBUTE_FOR: Record<string, string> = {
  * simply no single expression to point at within it.
  */
 export function attributeFor(errorName: string): string | null {
-  return ATTRIBUTE_FOR[errorName] ?? null;
+  return Object.hasOwn(ATTRIBUTE_FOR, errorName) ? (ATTRIBUTE_FOR[errorName] ?? null) : null;
 }
 
 /**

@@ -1,4 +1,5 @@
 import type { AccountSource } from '../rpc/source.ts';
+import { describeError } from '../redact.ts';
 import { PROGRAM_DATA_HEADER_SIZE, type Deployment } from './deployment.ts';
 import { elfHash } from './hash.ts';
 
@@ -121,9 +122,7 @@ async function queryRegistry(
     return Array.isArray(body) ? (body as RegistryEntry[]) : [];
   } catch (error) {
     return {
-      error: `The verified-build registry could not be reached: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      error: `The verified-build registry could not be reached: ${describeError(error)}`,
     };
   }
 }

@@ -279,6 +279,26 @@ describe('diagnose', () => {
     expect(result.reasons.join(' ')).toMatch(/endpoint down/);
   });
 
+  it('never lets an endpoint URL from a thrown error reach the diagnosis', async () => {
+    clearResolutionCache();
+    const entry = corpusEntry('3BFz86dEZ2');
+    const boom = () =>
+      Promise.reject(
+        new Error('fetch failed for https://rpc.example.com/v1/SECRETKEY?api-key=abc'),
+      );
+    const result = await diagnose(entry.signature, {
+      source: fixtureSource('transactions', entry.file),
+      accounts: { fetchAccount: boom, fetchAccountPrefix: boom },
+    });
+
+    const text = JSON.stringify(result, (_key, value: unknown) =>
+      typeof value === 'bigint' ? value.toString() : value,
+    );
+    expect(result.reasons.join(' ')).toMatch(/\[endpoint\]/);
+    expect(text).not.toContain('SECRETKEY');
+    expect(text).not.toContain('rpc.example.com');
+  });
+
   it('names the program that originated a failure, not the one that propagated it', async () => {
     const result = await diagnose(SIGNATURE, {
       source: fixtureSource('synthetic', 'native-custom-error.json'),

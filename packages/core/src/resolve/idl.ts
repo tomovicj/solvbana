@@ -1,6 +1,7 @@
 import { address as toAddress, createAddressWithSeed, getProgramDerivedAddress } from '@solana/kit';
 import { createHash } from 'node:crypto';
 import { inflateSync } from 'node:zlib';
+import { describeError } from '../redact.ts';
 import type { AccountSource } from '../rpc/source.ts';
 
 /**
@@ -301,6 +302,14 @@ export function parseIdlDocument(
 }
 
 /**
+ * The most an IDL account may inflate to. The account is one anyone can create at
+ * the Anchor-derived address, and zlib expands a few kilobytes into gigabytes, so
+ * the output is bounded rather than trusted. The largest real IDLs are a few
+ * hundred KB.
+ */
+export const MAX_IDL_INFLATED_BYTES = 8 * 1024 * 1024;
+
+/**
  * Decode an IDL account's raw bytes.
  *
  * Layout: an 8-byte account discriminator, a 32-byte authority, a u32 little-endian
@@ -315,9 +324,9 @@ export function decodeIdlAccount(bytes: Uint8Array, address: string): ResolvedId
   const length = view.getUint32(40, true);
   if (length === 0 || IDL_HEADER_SIZE + length > bytes.length) return null;
 
-  const json = inflateSync(bytes.subarray(IDL_HEADER_SIZE, IDL_HEADER_SIZE + length)).toString(
-    'utf8',
-  );
+  const json = inflateSync(bytes.subarray(IDL_HEADER_SIZE, IDL_HEADER_SIZE + length), {
+    maxOutputLength: MAX_IDL_INFLATED_BYTES,
+  }).toString('utf8');
   return parseIdlDocument(JSON.parse(json) as unknown, address);
 }
 
@@ -342,12 +351,17 @@ export async function resolveIdl(programId: string, source: AccountSource): Prom
     }
     return { kind: 'found', idl };
   } catch (error) {
+    if ((error as { code?: unknown }).code === 'ERR_BUFFER_TOO_LARGE') {
+      return {
+        kind: 'unreadable',
+        address,
+        reason: `The IDL account inflates past the ${String(MAX_IDL_INFLATED_BYTES)} byte limit and was not read.`,
+      };
+    }
     return {
       kind: 'unreadable',
       address,
-      reason: `The IDL account could not be decompressed or parsed: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      reason: `The IDL account could not be decompressed or parsed: ${describeError(error)}`,
     };
   }
 }

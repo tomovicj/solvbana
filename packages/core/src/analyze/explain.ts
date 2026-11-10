@@ -123,7 +123,9 @@ function describeComparison(comparison: Comparison): string {
 export function explainAnchor(error: AnchorError, comparison: Comparison | null): string {
   const parts: string[] = [];
 
-  const known = ANCHOR_EXPLANATIONS[error.name];
+  const known = Object.hasOwn(ANCHOR_EXPLANATIONS, error.name)
+    ? ANCHOR_EXPLANATIONS[error.name]
+    : undefined;
   if (known !== undefined) {
     parts.push(known);
   } else if (error.number >= 6000) {
@@ -153,5 +155,5 @@ export function explainAnchor(error: AnchorError, comparison: Comparison | null)
 
 /** Whether a name is one this tier has advice for, used to keep the corpus honest about coverage. */
 export function hasAnchorExplanation(name: string): boolean {
-  return name in ANCHOR_EXPLANATIONS;
+  return Object.hasOwn(ANCHOR_EXPLANATIONS, name);
 }
